@@ -438,3 +438,23 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
   neutral icon / leave as-is / wait for a supplied FreePlanTour asset); user
   chose **leave as-is**. No code changed for this item.
 
+## LOOP 11 — Environment Configuration
+
+- **Found and fixed a real gap while reviewing `.env.local.example`:**
+  `ENABLE_GUEST_CHAT` (`app/api/chat/route.ts`) is what allows the modal's
+  guest/ephemeral requests to succeed at all — without it, every modal
+  request gets `401 Unauthorized` — but it wasn't documented anywhere in
+  `.env.local.example`. Added a new "FreePlanTour Assistant Modal (Guest
+  Chat)" section explaining why it's required specifically for the modal.
+- Created `docs/freeplantour-assistant.md` covering: local setup, required
+  vars (one AI provider + one search provider + `ENABLE_GUEST_CHAT=true`),
+  AI provider setup, search provider setup, optional vars (including
+  `GUEST_CHAT_DAILY_LIMIT` and the Upstash rate-limiting vars — recommended
+  for a real public embed, not required for local testing), how to run
+  locally, how to test, how to embed the modal (with and without explicit
+  props), how to connect the future Firestore/API context layer, known
+  limitations (consolidated from Loops 3/7/9/10's WORKLOG entries), and the
+  legal/Morphic attribution note.
+- No secrets committed — `.env.local.example` contains placeholders only;
+  confirmed `.gitignore` already excludes `.env*.local`.
+
