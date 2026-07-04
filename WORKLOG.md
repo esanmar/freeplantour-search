@@ -625,3 +625,43 @@ available and (b) at least one AI provider key + one search provider key +
 `ENABLE_GUEST_CHAT=true` are set in `.env.local` — see
 `docs/freeplantour-assistant.md`.
 
+**User decision:** asked whether to update `docs/DOCKER.md` /
+`docs/CONFIGURATION.md` (still say "Morphic" throughout) — user chose to
+leave them as-is, confirming Loop 2's original classification.
+
+## LOOP 16 — Final Cleanup
+
+`rg -n "Morphic|morphic|morphic.sh|miurla" app components lib public docs README.md package.json`
+— same result set as Loop 15's scan (nothing changed since). Classification:
+
+| Match location | Classification |
+|---|---|
+| `README.md`, `docs/freeplantour-assistant.md` (attribution section) | **Keep — legal.** Required Apache-2.0 attribution note. |
+| `docs/DOCKER.md`, `docs/CONFIGURATION.md` (full-file "Morphic" references) | **Keep — developer documentation.** User confirmed leave-as-is in Loop 15. |
+| `lib/config/ollama-validator.ts`, `lib/auth/get-current-user.ts`, `lib/db/schema.ts`, `lib/tools/search/providers/tavily.ts`, `lib/streaming/helpers/convert-data-part.ts` | **Keep — internal comments/console messages**, never rendered in the chat UI. |
+| `lib/freeplantour/travel-system-prompt.ts` ("Do not mention Morphic.") + its test file | **Keep — intentional.** These are the guardrail instructions themselves; removing "Morphic" here would remove the anti-branding-leak instruction entirely. |
+| Everything in `app/`, all `components/*.tsx` UI strings | **Already removed** (Loop 2) — confirmed zero end-user-visible occurrences. |
+
+`rg -n "FreePlanTour|FreePlanTour Assistant|destination|travel assistant" app components lib docs`
+— 166 matches, confirming the new branding/domain vocabulary is present
+throughout the touched areas (prompt files, modal, extractors, docs).
+
+**Checks:**
+- No secrets committed: confirmed no `.env.local` is tracked
+  (`git ls-files` — empty match); `.gitignore` already excludes `.env*.local`.
+- No broken imports: `tsc --noEmit` passes cleanly for every file this
+  adaptation touched (Loop 14).
+- No unused/duplicate FreePlanTour files: `lib/freeplantour/` and
+  `components/freeplantour/` contain exactly the 12 files each loop
+  intentionally created — no leftovers, no duplicate modal components
+  (`auth-modal.tsx`/`error-modal.tsx`/`feedback-modal.tsx` are pre-existing,
+  unrelated dialogs, not FreePlanTour duplicates).
+- No dead code from failed attempts: none of the "critical architectural
+  decision" pivots (Loop 3's provider-mounting approach, Loop 9's async
+  researcher change) left orphaned code behind — each was a direct edit to
+  the final approach, not a discarded alternative left in place.
+- Working tree fully clean (`git status --short` — no output) after
+  reverting the one interim npm artifact from Loop 14
+  (`@testing-library/dom` was added to `node_modules` directly, not to
+  `package.json`/`bun.lock`).
+
