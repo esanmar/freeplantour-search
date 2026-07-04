@@ -1,0 +1,35 @@
+# FreePlanTour Assistant — Adaptation Worklog
+
+Adaptation of **Morphic** into the **FreePlanTour** AI travel assistant.
+Branch: `feature/freeplantour-travel-assistant`
+
+This project is adapted from [Morphic](https://github.com/miurla/morphic) and
+retains all original Apache-2.0 license requirements. See `LICENSE`.
+
+---
+
+## LOOP 0 — Initial Audit (no code changes)
+
+- Audited branding, chat architecture, prompts, routing, config, and test/build tooling.
+- Key findings:
+  - Next.js 16 **App Router**, React 19, Bun, TypeScript, Tailwind v4, Vitest.
+  - Chat flow: `components/chat.tsx` → `app/api/chat/route.ts` →
+    `lib/streaming/create-chat-stream-response.ts` (auth) /
+    `create-ephemeral-chat-stream-response.ts` (guest) →
+    `lib/agents/researcher.ts` → `lib/agents/prompts/search-mode-prompts.ts`.
+  - System prompt injected as `instructions` in `researcher.ts`. Prompts already
+    instruct the model to answer in the user's language. Citations use
+    `[number](#toolCallId)` with source cards.
+  - Request body assembled in `chat.tsx` `prepareSendMessagesRequest` — single
+    insertion point for `destination` / `locale` / `currentUrl`.
+- Legal: `LICENSE` (Apache-2.0, "Copyright 2024 Yoshiki Miura") must be preserved.
+  No `NOTICE` file present.
+- Risk flagged: repo was not under git — resolved in Loop 1.
+
+## LOOP 1 — Safety Setup
+
+- Initialized git in `C:\morphic-main` (was not a repository).
+- Committed pristine Morphic state as baseline: `chore: initial commit of Morphic baseline`.
+- Created branch `feature/freeplantour-travel-assistant`.
+- Added this `WORKLOG.md`.
+- `.env*.local` confirmed git-ignored; no secrets committed.
