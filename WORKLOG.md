@@ -166,4 +166,42 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
     (see reasoning trail) since `bun`/`node_modules` are still unavailable
     in this environment to actually run `vitest`. **Not yet executed** —
     must be run for real at Loop 14 once tooling is available.
+- Refactored the locale list into `lib/freeplantour/locales.ts`
+  (`SUPPORTED_LOCALES`, `isSupportedLocale`) so
+  `extract-destination-from-url.ts` and the new `language.ts` share one
+  source of truth instead of duplicating the 16-code list.
+
+## LOOP 5 — Locale and Language Detection
+
+- Created `lib/freeplantour/language.ts` exporting:
+  - `extractLocaleFromUrl(pathname): string | null` — same locale-segment
+    parsing as the destination extractor, factored out for reuse.
+  - `getLanguageInstruction(locale?): string` — builds the language-handling
+    prompt block for Loop 6's system prompt.
+- **Design decision:** actual language *detection* of the user's message is
+  delegated entirely to the model via a prompt instruction, not implemented
+  as client/server-side code. LLMs reliably identify the language of a short
+  message; a hand-rolled detector (e.g. character-set heuristics or a
+  dependency like `franc`) would be less accurate and is unnecessary
+  complexity. This matches the existing `search-mode-prompts.ts`, which
+  already says "ALWAYS respond in the user's language" — `getLanguageInstruction`
+  extends that with the priority order from CLAUDE.md: latest user message
+  language first, page locale as fallback when unclear, English as the last
+  resort, explicit "never force page locale over a clearly different user
+  language," and "follow the user if they switch language mid-conversation."
+  No new dependency was added.
+- Note: FreePlanTour's `ga` locale segment is treated as **Galician** (paired
+  with `eu` Basque and `ca` Catalan, Spain's other co-official regional
+  languages) even though ISO 639-1 assigns `ga` to Irish and `gl` to
+  Galician. Flagged in a code comment in `language.ts` — this only affects
+  the human-readable name shown in the prompt's fallback line, not URL
+  matching or response behavior.
+- Created `lib/freeplantour/language.test.ts` covering
+  `extractLocaleFromUrl` for Spanish, English, French, Japanese, Chinese,
+  Basque, Catalan, Galician, Portuguese, Italian, German (all requested
+  languages), plus case-insensitivity and null cases; and
+  `getLanguageInstruction` for the always-present latest-message rule, the
+  English fallback, the page-locale fallback with language name, the
+  never-force rule, and the mid-conversation language-switch rule.
+  Not yet executed for the same tooling reason as Loop 4.
 

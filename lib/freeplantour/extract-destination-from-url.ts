@@ -1,23 +1,4 @@
-// Locale segments FreePlanTour uses as the first path segment on
-// destination pages, e.g. /es/miranda-de-ebro, /ja/miranda-de-ebro.
-const LOCALE_SEGMENTS = new Set([
-  'es',
-  'en',
-  'fr',
-  'de',
-  'it',
-  'pt',
-  'ca',
-  'eu',
-  'ga',
-  'ja',
-  'ko',
-  'zh',
-  'tw',
-  'hi',
-  'ar',
-  'ru'
-])
+import { isSupportedLocale } from './locales'
 
 // Minor connector words that stay lowercase when they are not the first
 // word of a humanized destination name (e.g. "miranda-de-ebro" -> "Miranda
@@ -111,7 +92,7 @@ export function extractDestinationFromUrl(pathname: string): string | null {
   if (segments.length === 0) return null
 
   let index = 0
-  if (LOCALE_SEGMENTS.has(segments[0].toLowerCase())) {
+  if (isSupportedLocale(segments[0])) {
     index += 1
   }
 
