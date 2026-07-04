@@ -483,3 +483,34 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
   project's `tsconfig.json` includes all `**/*.tsx`) but isn't itself a
   route.
 
+## LOOP 13 — Tests
+
+- **Destination extraction, locale extraction, and search-query-building
+  tests were already written in Loops 4/5/8** respectively
+  (`extract-destination-from-url.test.ts`, `language.test.ts`,
+  `build-destination-search-query.test.ts`) — reviewed and confirmed still
+  accurate against the current implementations; no changes needed.
+- **New this loop:** created `lib/freeplantour/travel-system-prompt.test.ts`
+  (deferred from Loop 6), covering exactly what this loop's spec asks for:
+  - destination is included (both the "Current destination:" line and
+    interpolated into the role/scope-redirect text).
+  - current date is included (explicit value, and the `toLocaleDateString()`
+    fallback when omitted).
+  - **"Morphic is not included"** — interpreted precisely rather than
+    literally (`buildTravelSystemPrompt`'s own text intentionally contains
+    the word "Morphic" twice, in "Do not mention Morphic." / "Do not say you
+    are Morphic." — those guardrail instructions are required by the spec
+    and would make a naive `.not.toContain('Morphic')` assertion fail
+    against a *correct* implementation). The test instead asserts the prompt
+    identifies as `"You are FreePlanTour Assistant..."`, never contains the
+    false claim `"You are Morphic"`, and does contain the two "don't mention/
+    claim Morphic" guardrails — the actually-intended behavior.
+  - language rule included (delegates to `getLanguageInstruction`, checked
+    for both the always-present rule and the locale-specific fallback name).
+  - freshness rule included, plus a grounding-rule check (no fabricated
+    citations) and internal-context-block inclusion/omission behavior
+    (undefined, empty string, and populated) from Loop 9's wiring.
+- Not yet executed for the same tooling reason as every prior loop's tests
+  (no `bun`/`node_modules` in this environment) — all Loop 4/5/6/8/13 test
+  files must be run for real once tooling is available (Loop 14).
+
