@@ -257,11 +257,29 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+// Inert fallback used when no LibraryProvider is mounted (e.g. the
+// FreePlanTour embedded modal, which skips the full app shell). Keeps
+// consumers like chat-panel/message-actions safe to render standalone.
+const noopLibraryContext: LibraryContextValue = {
+  isOpen: false,
+  notesCache: null,
+  filesCache: null,
+  refreshKey: 0,
+  openLibrary: () => {},
+  closeLibrary: () => {},
+  toggleLibrary: () => {},
+  replaceNotesCache: () => {},
+  appendNotesCache: () => {},
+  upsertCachedNote: () => {},
+  removeCachedNote: () => {},
+  replaceFilesCache: () => {},
+  appendFilesCache: () => {},
+  upsertCachedFile: () => {},
+  removeCachedFile: () => {},
+  refreshLibrary: () => {}
+}
+
 export function useLibrary() {
   const context = useContext(LibraryContext)
-  if (!context) {
-    throw new Error('useLibrary must be used within a LibraryProvider')
-  }
-
-  return context
+  return context ?? noopLibraryContext
 }
