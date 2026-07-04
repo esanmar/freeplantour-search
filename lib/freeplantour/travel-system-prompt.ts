@@ -15,8 +15,17 @@ export function buildTravelSystemPrompt(params: {
   locale?: string
   currentUrl?: string
   currentDate?: string
+  /**
+   * Pre-formatted internal FreePlanTour content block (see
+   * lib/freeplantour/context.ts formatDestinationContextForPrompt), e.g.
+   * published itineraries/activities for this destination. Omitted from
+   * the prompt entirely when empty/undefined — only mention internal
+   * content when it's actually available.
+   */
+  internalContextBlock?: string
 }): string {
-  const { destination, locale, currentUrl, currentDate } = params
+  const { destination, locale, currentUrl, currentDate, internalContextBlock } =
+    params
 
   return `You are FreePlanTour Assistant, an AI travel assistant integrated into FreePlanTour.
 
@@ -67,5 +76,7 @@ Output style:
 - Use bullets when useful.
 - Prefer practical recommendations.
 - Avoid long generic introductions.
-- Ask at most one clarifying question only when necessary.`
+- Ask at most one clarifying question only when necessary.${
+    internalContextBlock ? `\n\n${internalContextBlock}` : ''
+  }`
 }

@@ -343,3 +343,33 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
   (no duplication), case-insensitive duplicate detection, and empty-input
   edge cases. Not yet executed for the same tooling reason as prior loops.
 
+## LOOP 9 — FreePlanTour Internal Context Layer
+
+- Created `lib/freeplantour/context.ts` exporting
+  `getDestinationContext({ destination, locale? })`, returning
+  `{ destination, itineraries: [], activities: [] }` — no hardcoded/fake
+  data, per the spec. Contains the three requested TODO comments (connect
+  to Firestore/API, prioritize published itineraries, include activities/
+  guides/destination URLs).
+  - Also added `formatDestinationContextForPrompt(context)`, returning `''`
+    when there's nothing to show (no summary, no itineraries, no
+    activities) or a formatted "FreePlanTour destination content:" block
+    otherwise.
+- **Wired end-to-end now, not left dangling**, to satisfy this loop's
+  explicit "the assistant prompt should include internal context only when
+  available": `lib/agents/researcher.ts`'s `createResearcher` is now
+  `async`, calls `getDestinationContext` when a `destination` is known,
+  formats the result, and passes it to `buildTravelSystemPrompt` via a new
+  optional `internalContextBlock` param — appended to the end of the
+  travel prompt only when non-empty (`travel-system-prompt.ts`). Since
+  `getDestinationContext` always resolves to empty arrays today, this is
+  currently a no-op in practice (no prompt text changes), but the plumbing
+  is real and will activate automatically once Firestore/API is connected
+  — no researcher.ts changes needed at that point, only context.ts.
+  - Required making `createResearcher`/`researcher` async; updated both
+    (and only) call sites — `create-chat-stream-response.ts` and
+    `create-ephemeral-chat-stream-response.ts` — to `await researcher(...)`.
+    Both were already inside `async` functions, so this is a low-risk,
+    fully-contained change (confirmed via grep that no other call site
+    exists).
+

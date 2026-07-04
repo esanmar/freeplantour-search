@@ -129,7 +129,7 @@ export async function createChatStreamResponse(
     perfTime('prepareMessages completed (stream)', prepareStart)
 
     // Get the researcher agent with parent trace ID and search mode.
-    const researchAgent = researcher({
+    const researchAgent = await researcher({
       model: context.modelId,
       modelConfig: model,
       parentTraceId,

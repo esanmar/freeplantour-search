@@ -3,6 +3,10 @@ import { stepCountIs, tool, ToolLoopAgent } from 'ai'
 import type { ResearcherTools } from '@/lib/types/agent'
 import { type Model } from '@/lib/types/models'
 
+import {
+  formatDestinationContextForPrompt,
+  getDestinationContext
+} from '../freeplantour/context'
 import { buildTravelSystemPrompt } from '../freeplantour/travel-system-prompt'
 import { fetchTool } from '../tools/fetch'
 import { createQuestionTool } from '../tools/question'
@@ -68,7 +72,7 @@ function wrapSearchToolForQuickMode<
 
 // Enhanced researcher function with improved type safety using ToolLoopAgent
 // Note: abortSignal should be passed to agent.stream() or agent.generate() calls, not to the agent constructor
-export function createResearcher({
+export async function createResearcher({
   model,
   modelConfig,
   parentTraceId,
@@ -89,11 +93,22 @@ export function createResearcher({
 }) {
   try {
     const currentDate = new Date().toLocaleString()
+
+    // Empty today (stub — see lib/freeplantour/context.ts TODOs), so this
+    // resolves to '' and adds nothing to the prompt until it's connected to
+    // a real source of FreePlanTour content.
+    const internalContextBlock = destination
+      ? formatDestinationContextForPrompt(
+          await getDestinationContext({ destination, locale })
+        )
+      : ''
+
     const travelSystemPrompt = buildTravelSystemPrompt({
       destination: destination ?? 'this destination',
       locale,
       currentUrl,
-      currentDate
+      currentDate,
+      internalContextBlock
     })
 
     // Create model-specific tools with proper typing

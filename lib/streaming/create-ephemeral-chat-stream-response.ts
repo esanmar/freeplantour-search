@@ -106,7 +106,7 @@ export async function createEphemeralChatStreamResponse(
       modelMessages = truncateMessages(modelMessages, maxTokens, model.id)
     }
 
-    const researchAgent = researcher({
+    const researchAgent = await researcher({
       model: `${model.providerId}:${model.id}`,
       modelConfig: model,
       parentTraceId,
