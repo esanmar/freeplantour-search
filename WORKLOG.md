@@ -458,3 +458,28 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
 - No secrets committed — `.env.local.example` contains placeholders only;
   confirmed `.gitignore` already excludes `.env*.local`.
 
+## LOOP 12 — Integration Example
+
+- Created `examples/freeplantour-page-integration.tsx` (not part of app
+  routing — reference only) with three variants, since this project already
+  uses Next.js **App Router** (confirmed: `app/` directory throughout, no
+  `pages/` router):
+  1. `SimpleIntegrationExample` — the actual recommended pattern: drop
+     `<FreePlanTourAssistantModal />` with zero props; it computes
+     destination/locale/currentUrl itself (Loop 7).
+  2. `ExplicitPropsIntegrationExample` — the literal pattern from CLAUDE.md's
+     spec (explicitly calling `extractDestinationFromUrl`/
+     `extractLocaleFromUrl` and passing the results as props), for a
+     framework other than this app or a caller that wants to compute the
+     values itself.
+  3. `AppRouterDestinationPageExample` — an App Router Server Component
+     page (`params: Promise<{ locale, slug }>`, matching this codebase's
+     existing async-params convention seen in `app/search/[id]/page.tsx`)
+     that would pass a CMS-sourced destination name explicitly, which is
+     more reliable than re-deriving it from the URL slug when the two don't
+     match 1:1 (e.g. itinerary slugs).
+- File lives under `examples/` (sibling to `app/`, `components/`, `lib/`)
+  rather than inside `app/`, so it's available for `tsc --noEmit` (the
+  project's `tsconfig.json` includes all `**/*.tsx`) but isn't itself a
+  route.
+
