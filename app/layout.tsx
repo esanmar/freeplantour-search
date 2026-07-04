@@ -27,12 +27,12 @@ const fontSans = FontSans({
   variable: '--font-sans'
 })
 
-const title = 'Morphic'
+const title = 'FreePlanTour Assistant'
 const description =
-  'A fully open-source AI-powered answer engine with a generative UI.'
+  'Your AI travel assistant — discover what to see, do and plan for your destination.'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://morphic.sh'),
+  metadataBase: new URL('https://freeplantour.com'),
   title,
   description,
   openGraph: {
@@ -42,8 +42,7 @@ export const metadata: Metadata = {
   twitter: {
     title,
     description,
-    card: 'summary_large_image',
-    creator: '@miiura'
+    card: 'summary_large_image'
   }
 }
 

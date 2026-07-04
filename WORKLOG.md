@@ -33,3 +33,32 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
 - Created branch `feature/freeplantour-travel-assistant`.
 - Added this `WORKLOG.md`.
 - `.env*.local` confirmed git-ignored; no secrets committed.
+
+## LOOP 2 — Legal & Branding
+
+- **Kept (legal):** `LICENSE` (Apache-2.0, "Copyright 2024 Yoshiki Miura") untouched.
+- **Replaced visible UI branding** Morphic → FreePlanTour:
+  - `app/layout.tsx` — page title, description, metadataBase, OpenGraph/Twitter.
+  - `components/auth-modal.tsx`, `components/error-modal.tsx` — auth dialog copy.
+  - `components/app-sidebar.tsx` — sidebar wordmark.
+  - `components/account-settings-dialog.tsx` — theme section copy.
+  - `components/feedback-modal.tsx` — feedback dialog copy.
+  - `components/external-link-items.tsx` — replaced Morphic social links with a
+    single FreePlanTour website link.
+  - `lib/footer-tips.ts` — disclaimer text.
+  - `lib/tools/fetch.ts` — outward-facing HTTP User-Agent.
+  - `.env.local.example` — config banner comment.
+  - `README.md` — rewritten for FreePlanTour with an attribution section noting
+    the project is adapted from Morphic and keeps the original license.
+- **Kept intentionally (non-visible / developer-facing, classified "optional"):**
+  - `MORPHIC_CLOUD_DEPLOYMENT` env var and related code comments (functional
+    identifiers; renaming risks breakage, not shown to end users).
+  - Internal code comments in `lib/db/schema.ts`, `lib/streaming/helpers/convert-data-part.ts`,
+    `lib/auth/get-current-user.ts`, `lib/tools/search/providers/tavily.ts`.
+  - `lib/config/ollama-validator.ts` server-console messages and `scripts/chat-cli.ts`
+    (developer tooling, not the end-user modal UI).
+  - `lib/utils/cookies.ts` internal event name `morphic-cookie-change` (invisible identifier).
+- **Tooling note:** `bun` is not installed and `node_modules` is absent in this
+  environment, so `typecheck` / `lint` / `build` could not be run this loop.
+  To be resolved before Loop 14 (quality checks).
+
