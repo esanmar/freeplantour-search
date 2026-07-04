@@ -3,6 +3,7 @@ import { stepCountIs, tool, ToolLoopAgent } from 'ai'
 import type { ResearcherTools } from '@/lib/types/agent'
 import { type Model } from '@/lib/types/models'
 
+import { buildTravelSystemPrompt } from '../freeplantour/travel-system-prompt'
 import { fetchTool } from '../tools/fetch'
 import { createQuestionTool } from '../tools/question'
 import { createSearchTool } from '../tools/search'
@@ -72,16 +73,28 @@ export function createResearcher({
   modelConfig,
   parentTraceId,
   searchMode = 'adaptive',
-  relatedEnabled = true
+  relatedEnabled = true,
+  destination,
+  locale,
+  currentUrl
 }: {
   model: string
   modelConfig?: Model
   parentTraceId?: string
   searchMode?: SearchMode
   relatedEnabled?: boolean
+  destination?: string
+  locale?: string
+  currentUrl?: string
 }) {
   try {
     const currentDate = new Date().toLocaleString()
+    const travelSystemPrompt = buildTravelSystemPrompt({
+      destination: destination ?? 'this destination',
+      locale,
+      currentUrl,
+      currentDate
+    })
 
     // Create model-specific tools with proper typing
     const originalSearchTool = createSearchTool(model)
@@ -128,7 +141,7 @@ export function createResearcher({
     // Create ToolLoopAgent with all configuration
     const agent = new ToolLoopAgent({
       model: getModel(model),
-      instructions: `${systemPrompt}\nCurrent date and time: ${currentDate}`,
+      instructions: `${travelSystemPrompt}\n\n${systemPrompt}`,
       tools,
       activeTools: activeToolsList,
       stopWhen: stepCountIs(maxSteps),

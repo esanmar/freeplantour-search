@@ -205,3 +205,48 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
   never-force rule, and the mid-conversation language-switch rule.
   Not yet executed for the same tooling reason as Loop 4.
 
+## LOOP 6 — Travel-Focused System Prompt
+
+- Created `lib/freeplantour/travel-system-prompt.ts` exporting
+  `buildTravelSystemPrompt({ destination, locale?, currentUrl?, currentDate? })`,
+  matching the CLAUDE.md prompt text (persona, role, freshness rules,
+  grounding rules, scope rules with the "don't mention Morphic" instruction,
+  output style).
+  - **Deliberate deviation from the literal template:** the hardcoded
+    "If the user asks in Spanish, answer in Spanish / ... Japanese ..."
+    bullet list was replaced with a single call to
+    `getLanguageInstruction(locale)` from Loop 5, rather than duplicating
+    near-identical language-priority text in two places. Same substantive
+    rules (latest-message language first, page-locale fallback, English
+    last resort, never override a clearly different user language, follow
+    mid-conversation switches), single source of truth.
+- **Wired into the chat backend** (per this loop's explicit instruction):
+  `lib/agents/researcher.ts`'s `createResearcher()` now accepts optional
+  `destination?`, `locale?`, `currentUrl?` params, builds
+  `travelSystemPrompt` via `buildTravelSystemPrompt` (defaulting
+  `destination` to `"this destination"` when not provided — satisfies Loop
+  7's "don't crash, don't hallucinate a city" rule early), and prepends it
+  to the existing `instructions` string ahead of the quick/adaptive
+  search-mode prompt from `search-mode-prompts.ts`.
+  - **Why prepend rather than replace:** `search-mode-prompts.ts` contains
+    load-bearing operational instructions unrelated to travel — the exact
+    tool-calling mechanics, the mandatory `[number](#toolCallId)` citation
+    format the UI parses, todoWrite usage, and output/markdown formatting.
+    Replacing it with just the persona/scope prompt would silently break
+    citation rendering and tool usage. Both prompts are concatenated so the
+    agent gets the FreePlanTour persona/scope/freshness/grounding rules on
+    top of the existing, unchanged tool mechanics.
+  - Removed the old redundant trailing `Current date and time: ...` append
+    from `instructions`, since `buildTravelSystemPrompt` already includes a
+    `Current date: ...` line.
+  - No existing call site (`create-chat-stream-response.ts`,
+    `create-ephemeral-chat-stream-response.ts`) passes `destination` /
+    `locale` / `currentUrl` yet — they're new optional params, so current
+    behavior is unaffected beyond every chat response now using the
+    FreePlanTour travel persona instead of the generic Morphic assistant
+    persona. Threading real values through the request pipeline is Loop 7.
+- Tests for `buildTravelSystemPrompt` are deferred to Loop 13, which
+  explicitly asks for prompt-building tests (destination included, current
+  date included, Morphic not mentioned, language/freshness rules included)
+  — not requested in this loop's instructions.
+
