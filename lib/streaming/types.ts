@@ -14,4 +14,7 @@ export interface BaseStreamConfig {
   isNewChat?: boolean
   searchMode?: SearchMode
   relatedEnabled?: boolean
+  destination?: string
+  locale?: string
+  currentUrl?: string
 }

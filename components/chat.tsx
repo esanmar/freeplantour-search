@@ -58,7 +58,10 @@ export function Chat({
   isGuest = false,
   isCloudDeployment = false,
   libraryAvailable = true,
-  modelSelectorData
+  modelSelectorData,
+  destination,
+  locale,
+  currentUrl
 }: {
   id?: string
   savedMessages?: UIMessage[]
@@ -67,6 +70,10 @@ export function Chat({
   isCloudDeployment?: boolean
   libraryAvailable?: boolean
   modelSelectorData?: ModelSelectorData
+  /** FreePlanTour destination context (see lib/freeplantour/types.ts) */
+  destination?: string
+  locale?: string
+  currentUrl?: string
 }) {
   const router = useRouter()
 
@@ -166,6 +173,9 @@ export function Chat({
             analyticsId: getDistinctId(),
             ...(relatedEnabled === undefined ? {} : { relatedEnabled }),
             ...(isGuest ? { messages } : {}),
+            ...(destination ? { destination } : {}),
+            ...(locale ? { locale } : {}),
+            ...(currentUrl ? { currentUrl } : {}),
             message:
               trigger === 'regenerate-message' &&
               messageToRegenerate?.role === 'user'

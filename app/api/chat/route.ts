@@ -41,6 +41,12 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { message, messages, chatId, trigger, messageId, isNewChat } = body
     const analyticsId: unknown = body.analyticsId
+    const destination: string | undefined =
+      typeof body.destination === 'string' ? body.destination : undefined
+    const locale: string | undefined =
+      typeof body.locale === 'string' ? body.locale : undefined
+    const currentUrl: string | undefined =
+      typeof body.currentUrl === 'string' ? body.currentUrl : undefined
 
     // Normalize the message id up front so persistence and analytics agree on it.
     if (message && !message.id) {
@@ -194,7 +200,10 @@ export async function POST(req: Request) {
           abortSignal,
           searchMode,
           chatId,
-          relatedEnabled
+          relatedEnabled,
+          destination,
+          locale,
+          currentUrl
         })
       : await createChatStreamResponse({
           message,
@@ -206,7 +215,10 @@ export async function POST(req: Request) {
           abortSignal,
           isNewChat,
           searchMode,
-          relatedEnabled
+          relatedEnabled,
+          destination,
+          locale,
+          currentUrl
         })
 
     perfTime('createChatStreamResponse resolved', streamStart)

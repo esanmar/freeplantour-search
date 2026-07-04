@@ -250,3 +250,51 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
   date included, Morphic not mentioned, language/freshness rules included)
   — not requested in this loop's instructions.
 
+## LOOP 7 — Pass Destination Context to Chat API
+
+- Created `lib/freeplantour/types.ts` exporting
+  `FreePlanTourChatContext = { destination: string, locale?, currentUrl? }`.
+- Threaded `destination` / `locale` / `currentUrl` end-to-end:
+  - `lib/streaming/types.ts` — added the three optional fields to
+    `BaseStreamConfig`.
+  - `lib/streaming/create-chat-stream-response.ts` (authenticated path) and
+    `lib/streaming/create-ephemeral-chat-stream-response.ts` (guest/modal
+    path) — destructure the three fields from config and pass them through
+    to `researcher()` (the `createResearcher` params added in Loop 6).
+  - `app/api/chat/route.ts` — reads `destination`/`locale`/`currentUrl` off
+    the parsed request body (type-guarded with `typeof === 'string'`, so a
+    malformed/missing field never throws) and forwards them to both
+    `createChatStreamResponse` and `createEphemeralChatStreamResponse`.
+  - `components/chat.tsx` — `Chat` now accepts optional `destination` /
+    `locale` / `currentUrl` props and includes them in the
+    `prepareSendMessagesRequest` body (omitted entirely when falsy, so
+    existing non-FreePlanTour usage of `<Chat>` is unaffected).
+  - `components/freeplantour/freeplantour-assistant-modal.tsx` — now
+    actually forwards its `destination`/`locale`/`currentUrl` down to
+    `<Chat>` (previously only used for the trigger/header label text and
+    the remount key from Loop 3).
+- **Requirement "the modal must compute destination/locale/currentUrl"
+  (not just receive them as props):** the modal now falls back to computing
+  all three from `window.location` itself, via the Loop 4/5 extractors
+  (`extractDestinationFromUrl`, `extractLocaleFromUrl`), whenever a host
+  page doesn't pass them explicitly. Explicit props still win when
+  provided (a host page's own CMS data may be more accurate than slug
+  parsing). Computed client-side only (`typeof window !== 'undefined'`
+  guard) and re-derived on every open/close toggle, not just on mount.
+  - **Known limitation:** re-deriving only on open/close toggle (rather
+    than wiring a full router/history listener) means a client-side SPA
+    navigation to a *different* destination while the modal stays open
+    won't immediately update `computed` until the next toggle. Accepted as
+    a pragmatic trade-off; flagged for Loop 15 manual QA — if it matters in
+    practice, add a `popstate`/pathname-watcher effect then.
+- **Requirement "if destination is missing, use 'this destination', don't
+  crash, don't hallucinate a city"** was already satisfied in Loop 6
+  (`researcher.ts` defaults `destination ?? 'this destination'`) — verified
+  still correct with the new plumbing (an absent `destination` simply never
+  reaches the request body, per the `...(destination ? {...} : {})` guard
+  in `chat.tsx`, so the server-side default applies).
+- **Requirement "don't mix answers across destinations when the URL
+  changes"** was already satisfied in Loop 3 via the modal's
+  `key={destination}:{currentUrl}` on `<Chat>`, which remounts (resets) the
+  conversation whenever either value changes.
+

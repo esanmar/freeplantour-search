@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { IconMessage, IconX } from '@tabler/icons-react'
 
+import { extractDestinationFromUrl } from '@/lib/freeplantour/extract-destination-from-url'
+import { extractLocaleFromUrl } from '@/lib/freeplantour/language'
 import { cn } from '@/lib/utils'
 
 import { Chat } from '@/components/chat'
@@ -51,13 +53,39 @@ function getLabels(locale?: string): Labels {
 // no-ops without those providers (see their context files), so <Chat> still
 // renders safely standalone here.
 export function FreePlanTourAssistantModal({
-  destination,
-  locale,
-  currentUrl,
+  destination: destinationProp,
+  locale: localeProp,
+  currentUrl: currentUrlProp,
   initialOpen = false,
   className
 }: FreePlanTourAssistantModalProps) {
   const [open, setOpen] = useState(initialOpen)
+
+  // Explicit props always win (a host page may already know the destination
+  // from its own data). Otherwise the modal computes it from the current
+  // URL itself, so it works when simply dropped onto a page with no props.
+  // Recomputed on every open/close toggle (not just on mount) as a
+  // pragmatic way to pick up client-side navigation between destination
+  // pages without wiring up a full router/history listener.
+  const [computed, setComputed] = useState<{
+    destination?: string
+    locale?: string
+    currentUrl?: string
+  }>({})
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setComputed({
+      destination:
+        extractDestinationFromUrl(window.location.pathname) ?? undefined,
+      locale: extractLocaleFromUrl(window.location.pathname) ?? undefined,
+      currentUrl: window.location.href
+    })
+  }, [open])
+
+  const destination = destinationProp ?? computed.destination
+  const locale = localeProp ?? computed.locale
+  const currentUrl = currentUrlProp ?? computed.currentUrl
 
   const labels = getLabels(locale)
   const triggerLabel = destination
@@ -129,6 +157,9 @@ export function FreePlanTourAssistantModal({
               key={`${destination ?? 'unknown-destination'}:${currentUrl ?? ''}`}
               isGuest
               libraryAvailable={false}
+              destination={destination}
+              locale={locale}
+              currentUrl={currentUrl}
             />
           </div>
         </DialogPrimitive.Content>
