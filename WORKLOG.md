@@ -584,3 +584,44 @@ interim install step were reverted/deleted, not committed).
   constraint: typecheck and lint both genuinely pass for every file this
   adaptation touched.
 
+## LOOP 15 — Manual QA Checklist
+
+**Could not perform a live run:** `next dev`/`next build` require Node
+≥20.9.0 (this environment has 18.20.4 — the same hard blocker documented in
+Loop 14), and no `.env.local` with real AI-provider/search-provider keys
+exists in this environment either. Both blockers are independent of each
+other and neither can be worked around from inside this session. Per Loop
+15's own wording ("Perform **or prepare** manual QA"), the checklist below
+is prepared with a code-level trace for each case: statically-verifiable
+items (routing/branding/search-query logic) are checked directly against
+the committed code; items that depend on an LLM's actual instruction
+-following are marked as such — the prompt-level guarantee is in place and
+traced, but real behavior can only be confirmed once someone runs this with
+Node 20+ and live API keys.
+
+| Test | Verifiable how | Result |
+|---|---|---|
+| `/es/miranda-de-ebro`, `/en/bilbao`, `/fr/ezcaray`, `/es/1776191501388/viaje-de-3-dias-a-miranda-de-ebro`, `/en/1780650079749/3-day-trip-to-miranda-de-ebro`, `/ja/miranda-de-ebro`, `/zh/miranda-de-ebro` | Code — these are literally the Loop 4/5 unit test cases | ✅ All 7 URLs traced correctly to their destination/locale by `extractDestinationFromUrl`/`extractLocaleFromUrl` (see `lib/freeplantour/*.test.ts`) |
+| Spanish "¿Qué puedo ver en un día?" → Spanish answer, destination mentioned, practical itinerary | LLM behavior (prompt guarantee only) | ⏳ `getLanguageInstruction`/`buildTravelSystemPrompt` correctly instruct this; actual model compliance unverified without a live run |
+| English "What can I do with kids?" → English, destination-aware | LLM behavior (prompt guarantee only) | ⏳ Same as above |
+| Japanese "子供と一緒に何ができますか？" → Japanese, destination-aware | LLM behavior + code | ⏳ Language instruction present; **search-query augmentation for this exact query shape is unit-tested** (`build-destination-search-query.test.ts`'s CJK prepend cases) — confirmed the destination will be present in any search triggered by this message even if the model's own query omits it |
+| "¿Hay eventos este fin de semana?" → uses web search, cites sources, admits when unverifiable | LLM behavior (prompt guarantee only) | ⏳ Freshness/grounding rules explicitly cover this ("if you cannot verify something, say that you cannot confirm it"); requires a configured search provider + live run to confirm actual citation behavior |
+| Out-of-scope "Explícame cómo configurar un servidor Linux" → polite redirect to travel help | LLM behavior (prompt guarantee only) | ⏳ Scope rules contain the exact redirect template (`"I can help you better with plans, visits and itineraries in {destination}."`); model compliance unverified live |
+| "Does the UI show Morphic anywhere?" | **Fully code-verifiable** | ✅ Ran `rg -n "Morphic\|morphic.sh\|miurla" app components lib public docs README.md package.json`: every remaining hit is either (a) developer docs (`docs/DOCKER.md`, `docs/CONFIGURATION.md` — not updated this pass, see note below), (b) internal code comments/console warnings never shown in the chat UI (`lib/config/ollama-validator.ts`, `lib/auth/get-current-user.ts`, `lib/db/schema.ts`, etc.), (c) the required README/docs legal attribution, or (d) this repo's own prompt guardrails/tests correctly instructing the model not to claim to be Morphic. **Zero end-user-visible UI strings contain "Morphic"** — consistent with Loop 2's original audit. The one exception, flagged and left as-is per explicit user decision in Loop 10, is Morphic's original logo *shape* (not text). |
+| "restaurantes" → destination-included search, not generic | **Fully code-verifiable** | ✅ Traced `lib/tools/search.ts`'s `createSearchTool`: whenever `researcher.ts` has a `destination` (i.e. whenever the modal is used, since it always computes one), every query is passed through `buildDestinationSearchQuery` before reaching any provider — a raw model query of `"restaurantes"` would deterministically become `"restaurantes en {destination}"` at minimum, even before considering the model's own prompt-level instruction to phrase it as `"mejores restaurantes en {destination}"` |
+
+**Note:** `docs/DOCKER.md` and `docs/CONFIGURATION.md` still refer to the
+project as "Morphic" throughout — these are pre-existing developer docs
+(installation/configuration guides), not user-facing chat UI. Per Loop 2's
+own classification rules ("developer documentation: optional"), these were
+intentionally left alone rather than rewritten; flagging here in case the
+user wants them updated in Loop 16's final pass for consistency, since
+they still reference `docker pull ghcr.io/miurla/morphic` and similar
+Morphic-specific setup instructions that may not apply to a FreePlanTour
+fork's own deployment.
+
+**Recommendation:** re-run this checklist for real once (a) Node ≥20 is
+available and (b) at least one AI provider key + one search provider key +
+`ENABLE_GUEST_CHAT=true` are set in `.env.local` — see
+`docs/freeplantour-assistant.md`.
+
