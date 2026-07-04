@@ -13,9 +13,10 @@
  * reliable than re-deriving it from the URL slug.
  */
 
-import { FreePlanTourAssistantModal } from '@/components/freeplantour/freeplantour-assistant-modal'
 import { extractDestinationFromUrl } from '@/lib/freeplantour/extract-destination-from-url'
 import { extractLocaleFromUrl } from '@/lib/freeplantour/language'
+
+import { FreePlanTourAssistantModal } from '@/components/freeplantour/freeplantour-assistant-modal'
 
 /**
  * Simplest integration: the modal figures out the destination/locale from

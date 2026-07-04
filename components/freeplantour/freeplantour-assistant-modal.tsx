@@ -78,6 +78,12 @@ export function FreePlanTourAssistantModal({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    // Deliberately deferred to an effect rather than computed during render:
+    // computing this from window.location on the first render would mismatch
+    // the server-rendered (window-less) markup and trigger a hydration
+    // warning. This runs once after mount, then again on each open/close
+    // toggle, updating state exactly once per trigger — not a render loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setComputed({
       destination:
         extractDestinationFromUrl(window.location.pathname) ?? undefined,

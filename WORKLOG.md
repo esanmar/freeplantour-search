@@ -514,3 +514,73 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
   (no `bun`/`node_modules` in this environment) — all Loop 4/5/6/8/13 test
   files must be run for real once tooling is available (Loop 14).
 
+## LOOP 14 — Quality Checks
+
+**Tooling:** `bun` is unavailable in this environment. Per user decision,
+installed dependencies with `npm install --legacy-peer-deps` (React 19 vs.
+`cmdk`'s React 18 peer range needed the flag) instead of the project's
+intended `bun`/`bun.lock`. `package.json`/`bun.lock` are unmodified —
+confirmed via `git diff --stat` after the install (a stray
+`@testing-library/dom` addition and generated `package-lock.json` from an
+interim install step were reverted/deleted, not committed).
+
+- **`tsc --noEmit`: ran successfully.** Found errors only in files never
+  touched by any FreePlanTour commit (confirmed via `git log` — these
+  appear solely in the Loop-1 baseline commit):
+  - `components/__tests__/*.test.tsx` — `@testing-library/react` missing
+    `screen`/`fireEvent`/`waitFor` exports. Root cause: `@testing-library/dom`
+    (a transitive peer dependency `@testing-library/react` re-exports these
+    from) wasn't installed by npm's resolution. Fixed by installing it
+    directly into `node_modules` (without adding it to `package.json` —
+    bun's resolver would have pulled it in correctly; this is an npm-only
+    resolution gap).
+  - `lib/supabase/{middleware,server}.ts` — implicit `any` errors on
+    `@supabase/ssr`'s cookie callback params, from npm resolving different
+    `@supabase/ssr` types than `bun.lock` pins. Pre-existing, unrelated to
+    FreePlanTour work; **not fixed** (out of scope — these files were never
+    part of this adaptation and fixing them would mean modifying Morphic's
+    core auth code for an npm-specific artifact).
+- **`eslint .`: ran successfully.** Found 7 errors, 2 in files I own/created
+  and fixed, 5 pre-existing (confirmed via `git log -p` that my commits
+  never touched the flagged lines):
+  - **Fixed:** `components/freeplantour/freeplantour-assistant-modal.tsx` —
+    `react-hooks/set-state-in-effect` on the destination/locale
+    auto-computation effect. Added a scoped
+    `eslint-disable-next-line` with a comment explaining why: the value is
+    deliberately computed post-mount (not during render) to avoid a
+    hydration mismatch against the window-less server render — the
+    standard pattern for client-only derived state, which this newer lint
+    rule doesn't have an exception for. Matches the codebase's own existing
+    convention of scoped hook-rule disables (e.g. the `exhaustive-deps`
+    disable already present in `reasoning-section.tsx`).
+  - **Fixed:** `examples/freeplantour-page-integration.tsx` —
+    `simple-import-sort/imports` ordering; the project's custom sort groups
+    (`eslint.config.mjs`) put `@/lib` imports before `@/components`, which
+    my import order had backwards. Reordered.
+  - **Pre-existing, left as-is (same `react-hooks/set-state-in-effect`
+    rule, in files never touched by any FreePlanTour commit):**
+    `components/reasoning-section.tsx:70`, `components/sidebar/chat-history-client.tsx:53`,
+    `components/ui/carousel.tsx:119`, `components/ui/sidebar.tsx:106`,
+    `hooks/use-mobile.tsx:14`. All five are the same "client-only derived
+    state computed in an effect" pattern as the one I fixed in the modal —
+    likely this lint rule was added/tightened after these files were
+    written, surfacing pre-existing debt unrelated to this adaptation. Not
+    fixed: touching five shared, heavily-used files for an unrelated lint
+    rule is outside this task's scope and risks exactly the "blind massive
+    changes" the project's own instructions warn against.
+- **`vitest run` / `next build`: could not execute — hard Node version
+  blocker, not fixable via npm flags.** `vitest` (via `rolldown`) requires
+  Node ≥20 (`node:util`'s `styleText` export doesn't exist on Node 18) and
+  Next.js 16 requires Node ≥20.9.0. This environment has Node 18.20.4.
+  Raised to the user with three options (switch Node version / attempt a
+  Node-18-compatible vitest downgrade / skip and document); user chose to
+  skip. **None of the `lib/freeplantour/*.test.ts` files (Loops 4/5/6/8/13)
+  have been executed in this environment.** Every test in them was
+  manually traced against its implementation line-by-line at write time
+  (see each loop's WORKLOG entry), but that is not a substitute for
+  actually running them. This must happen in an environment with Node ≥20
+  (or bun) before this work can be considered fully validated.
+- Left the project in the cleanest state achievable given the tooling
+  constraint: typecheck and lint both genuinely pass for every file this
+  adaptation touched.
+
