@@ -665,3 +665,55 @@ throughout the touched areas (prompt files, modal, extractors, docs).
   (`@testing-library/dom` was added to `node_modules` directly, not to
   `package.json`/`bun.lock`).
 
+## Addendum — DATABASE_URL audit (post-deployment correction)
+
+A real Vercel deployment of this branch (`vercel deploy`, no `.vercel` link
+existing beforehand) failed at build time with `Error: DATABASE_URL or
+DATABASE_RESTRICTED_URL environment variable is not set` while collecting
+page data for `/api/feedback`. This prompted an audit of every DATABASE_URL/
+postgres/drizzle/supabase reference in the repo (`rg` across `app`,
+`components`, `lib`, `docs`, config files).
+
+**Finding: `docs/freeplantour-assistant.md`'s "Required variables" section
+(written in Loop 11) understated this requirement** — it said DATABASE_URL
+was needed for "local development" and "the authenticated app," implying the
+guest-only modal path could skip it. This is incorrect: `lib/db/index.ts`
+throws at **module-evaluation time** (not lazily), and `app/api/chat/route.ts`
+— shared by both the authenticated and guest/modal paths — statically
+imports `loadChat` → `lib/db/actions.ts` → `lib/db/index.ts`. Next.js
+evaluates this import graph during the build's page-data-collection step
+regardless of which runtime branch (`ENABLE_AUTH`/`ENABLE_GUEST_CHAT`)
+actually executes, so a missing `DATABASE_URL` crashes the **build**, not
+just a specific request path. The same import chain reaches `/api/chat`,
+`/api/chats`, `/api/upload`, and `/search/[id]` — the homepage itself
+(`app/page.tsx`) does not transitively import `lib/db` and would build fine
+in isolation, but the app as a whole fails because one failing route aborts
+the entire build.
+
+**Why the original Morphic Vercel deploy button (`env=OPENAI_API_KEY,TAVILY_API_KEY,ENABLE_AUTH`,
+present in the pre-FreePlanTour baseline README, confirmed via
+`git show 3138b34:README.md`) doesn't list DATABASE_URL:** `docker-compose.yaml`
+auto-provisions a Postgres container and injects `DATABASE_URL`/
+`DATABASE_RESTRICTED_URL` automatically, so the Docker path never needs a
+user-supplied value. The Vercel deploy button gets no equivalent automatic
+provisioning (no storage integration attached), so this appears to be a
+pre-existing inconsistency in the original upstream project between what
+the deploy button advertises and what the code actually requires at build
+time — not something introduced by the FreePlanTour adaptation. No Prisma,
+`@vercel/postgres`, or `pg` driver is used anywhere in the codebase — only
+`drizzle-orm` + the `postgres` (postgres.js) driver package.
+
+**Fixed:** rewrote the "Required variables" section and added a "Why
+DATABASE_URL is required" subsection to `docs/freeplantour-assistant.md`
+with the exact import chain and the actual failed-build error message;
+updated `.env.local.example`'s Database Configuration section header and
+comments to state plainly that it's required for any build/deployment, not
+just local development; added a bullet to "Known limitations" describing
+the architectural fix that would be needed to make this genuinely optional
+(lazy-load the DB client, or gate the authenticated import behind a runtime
+check) — neither exists today.
+
+**Conclusion:** DATABASE_URL is required, not unused or optional. No
+documentation was removed; the inaccurate parts were corrected to match the
+codebase's actual (non-lazy) behavior.
+
