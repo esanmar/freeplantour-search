@@ -130,3 +130,40 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
   rather than a tight fit. Not a functional break; flagged for Loop 10/15 if
   QA shows it's noticeable.
 
+## LOOP 4 — Destination Extraction From URL
+
+- Created `lib/freeplantour/extract-destination-from-url.ts` exporting
+  `extractDestinationFromUrl(pathname: string): string | null`.
+  - Strips a leading locale segment (`es, en, fr, de, it, pt, ca, eu, ga,
+    ja, ko, zh, tw, hi, ar, ru`), case-insensitively; harmless no-op if the
+    first segment isn't a recognized locale (so paths without a locale
+    prefix still resolve, e.g. `/bilbao` -> `Bilbao`).
+  - Skips a following purely-numeric segment as an itinerary id.
+  - Matches the remaining slug against 6 generalized trip-pattern regexes
+    (one per source language: es/en/fr/pt/it/de), each capturing the
+    destination slug after the "N-day trip to" phrasing. Day-count and
+    singular/plural (`dia`/`dias`, `jour`/`jours`) are matched generically
+    (`\d+`, `s?`) rather than hardcoding only the 1/2/3-day literals from the
+    CLAUDE.md examples, so other day counts resolve too — a strict superset
+    of the required cases.
+  - Falls back to using the whole remaining slug as the destination when no
+    trip pattern matches (rule 4).
+  - Humanizes hyphenated slugs to Title Case, lowercasing minor connector
+    words (`de, la, los, del, ...`) except when they're the first word —
+    matches the spec's `miranda-de-ebro` -> `Miranda de Ebro` (mid-slug "de"
+    lowercase) vs. `la-rioja` -> `La Rioja` (leading "la" capitalized).
+  - Returns `null` for empty/root paths, locale-only paths, and
+    locale+numeric-id paths with no trailing destination slug.
+  - Also strips query strings and hash fragments defensively, though the
+    contract is pathname-only input.
+- Created `lib/freeplantour/extract-destination-from-url.test.ts` with 33
+  cases (exceeds the 20 minimum): every CLAUDE.md example URL, all 16
+  locale prefixes, minor-word capitalization edge cases, numeric-id
+  handling (with and without a trailing slug), trailing slash / query /
+  hash stripping, case-insensitive locale matching, no-locale-prefix
+  fallback, and null-returning inputs.
+  - Every case was manually traced against the implementation line-by-line
+    (see reasoning trail) since `bun`/`node_modules` are still unavailable
+    in this environment to actually run `vitest`. **Not yet executed** —
+    must be run for real at Loop 14 once tooling is available.
+
