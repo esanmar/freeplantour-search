@@ -115,3 +115,11 @@ export function useArtifact() {
   const context = useContext(ArtifactContext)
   return context ?? noopArtifactContext
 }
+
+// Lets "inspect"-style UI (search/reasoning/todo section headers) decide
+// whether to render an interactive trigger at all — calling the no-op
+// `open()` above is safe but produces a dead click with no visible effect,
+// which is worse than not offering the affordance in the first place.
+export function useHasArtifactProvider(): boolean {
+  return useContext(ArtifactContext) !== undefined
+}

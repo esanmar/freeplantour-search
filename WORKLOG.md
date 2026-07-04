@@ -373,3 +373,68 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
     fully-contained change (confirmed via grep that no other call site
     exists).
 
+## LOOP 10 — Simplify UI for the FreePlanTour Modal
+
+- **Already satisfied by earlier loops, verified rather than re-implemented:**
+  - Model/provider selector: hidden automatically since the modal never
+    passes `modelSelectorData` to `<Chat>` (Loop 3).
+  - Share button (`chat-share.tsx`, rendered from `message-actions.tsx`):
+    gated by `enableShare = ... && !isGuest`; the modal always sets
+    `isGuest`, so it's already hidden — no code change needed.
+  - File upload / "Add from library" attachment menu (`chat-panel.tsx`):
+    the whole block is wrapped in `{!isGuest && (...)}`, so it's already
+    hidden for the modal — no code change needed. (Corrects an assumption
+    in the Loop 3 worklog entry, which worried about a no-op "Add from
+    library" button; it turns out that button never renders for guests at
+    all, so the concern didn't apply in practice.)
+  - Header/sidebar/public navigation: not part of `<Chat>`'s render tree at
+    all (root-layout-only components) — confirmed still true, no change
+    needed.
+- **New fix — dead "inspect" buttons:** `search-section.tsx`,
+  `reasoning-section.tsx`, and `tool-todo-display.tsx` each render a
+  clickable `ProcessHeader` whose `onInspect` calls `useArtifact().open()`
+  to show full content in a side panel. In the modal (no `ArtifactProvider`
+  mounted, per the Loop 3 decision), `open()` is the Loop-3 no-op fallback —
+  so these were previously live, hover-styled, clickable buttons that did
+  nothing when clicked. Fixed properly instead of leaving the known
+  limitation from Loop 3:
+  - Added `useHasArtifactProvider(): boolean` to
+    `components/artifact/artifact-context.tsx`.
+  - `components/process-header.tsx` now renders as a plain non-interactive
+    `<div>` (no hover/cursor-pointer styling) when `onInspect` is
+    `undefined`, instead of always rendering an (potentially dead) `<button>`.
+  - The three call sites now pass `onInspect={hasArtifactProvider ? ... :
+    undefined}`. Backward compatible: every existing call site outside the
+    modal still has a real `ArtifactProvider`, so `hasArtifactProvider` is
+    `true` there and behavior/styling is unchanged.
+  - `fetch-section.tsx`'s `onInspect` was left untouched — it calls
+    `window.open(url)` directly, not `useArtifact()`, so it already works
+    fine standalone.
+- **New: destination-aware empty state and placeholder**, closing the gap
+  where Loop 3's specified empty-state copy ("Ask me what to see, where to
+  go, or how to plan your visit.") had only been wired as an sr-only
+  `DialogDescription`, never as the actual visible empty-state text inside
+  the chat area:
+  - `components/chat-panel.tsx`: added optional `emptyStatePlaceholder`
+    (default `'Ask anything...'`, unchanged for the main app) and
+    `emptyStateHeading` (default `'What would you like to know?'`) props,
+    used in place of the previously hardcoded textarea placeholder and
+    empty-state `<h1>`.
+  - Threaded through `components/chat.tsx` as new optional props.
+  - The modal now passes `emptyStatePlaceholder={labels.placeholder}`
+    (new EN/ES `placeholder` field added to its `LABELS`) and
+    `emptyStateHeading={labels.empty}` (reusing the existing empty-state
+    copy) — so a user opening the widget sees genuinely travel-focused
+    copy instead of generic "Ask anything.../What would you like to know?"
+    search-engine phrasing.
+- **Flagged but intentionally left as-is per explicit user decision:**
+  Morphic's actual logo *shape* (not text) — a black circle with two white
+  dots, defined in `components/ui/icons.tsx` as `IconLogo`/`IconBlinkingLogo`,
+  and its animated variant `AnimatedLogo` — appears as the assistant avatar
+  after every response (`chat-messages.tsx`) and on the empty-state screen
+  (`chat-panel.tsx`), plus in the auth dialog. This is visible Morphic
+  branding that Loop 2's text-based search didn't catch (no "Morphic"
+  string in the SVG). Raised to the user with three options (replace with a
+  neutral icon / leave as-is / wait for a supplied FreePlanTour asset); user
+  chose **leave as-is**. No code changed for this item.
+

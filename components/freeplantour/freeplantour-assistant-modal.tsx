@@ -23,6 +23,7 @@ type Labels = {
   button: string
   empty: string
   closeLabel: string
+  placeholder: string
 }
 
 // Only English/Spanish fallbacks are hardcoded here per the modal spec.
@@ -32,12 +33,14 @@ const LABELS: Record<'en' | 'es', Labels> = {
   en: {
     button: 'Ask about this destination',
     empty: 'Ask me what to see, where to go, or how to plan your visit.',
-    closeLabel: 'Close assistant'
+    closeLabel: 'Close assistant',
+    placeholder: 'Ask about this destination...'
   },
   es: {
     button: 'Preguntar sobre este destino',
     empty: 'Pregúntame qué ver, dónde ir o cómo planear tu visita.',
-    closeLabel: 'Cerrar asistente'
+    closeLabel: 'Cerrar asistente',
+    placeholder: 'Pregunta sobre este destino...'
   }
 }
 
@@ -160,6 +163,8 @@ export function FreePlanTourAssistantModal({
               destination={destination}
               locale={locale}
               currentUrl={currentUrl}
+              emptyStatePlaceholder={labels.placeholder}
+              emptyStateHeading={labels.empty}
             />
           </div>
         </DialogPrimitive.Content>

@@ -61,7 +61,9 @@ export function Chat({
   modelSelectorData,
   destination,
   locale,
-  currentUrl
+  currentUrl,
+  emptyStatePlaceholder,
+  emptyStateHeading
 }: {
   id?: string
   savedMessages?: UIMessage[]
@@ -74,6 +76,10 @@ export function Chat({
   destination?: string
   locale?: string
   currentUrl?: string
+  /** Placeholder shown before the first message is sent */
+  emptyStatePlaceholder?: string
+  /** Heading shown above the input before the first message is sent */
+  emptyStateHeading?: string
 }) {
   const router = useRouter()
 
@@ -637,6 +643,8 @@ export function Chat({
           onAdaptiveModeAuthRequired={showAdaptiveModeAuthModal}
           modelSelectorData={modelSelectorData}
           sections={sections}
+          emptyStatePlaceholder={emptyStatePlaceholder}
+          emptyStateHeading={emptyStateHeading}
         />
         <DragOverlay visible={dragHandlers.isDragging} />
         <ErrorModal

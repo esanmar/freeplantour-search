@@ -11,7 +11,10 @@ import type { SearchResults as TypeSearchResults } from '@/lib/types'
 import type { ToolPart, UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
 import { cn } from '@/lib/utils'
 
-import { useArtifact } from '@/components/artifact/artifact-context'
+import {
+  useArtifact,
+  useHasArtifactProvider
+} from '@/components/artifact/artifact-context'
 
 import { StatusIndicator } from './ui/status-indicator'
 import { CollapsibleMessage } from './collapsible-message'
@@ -68,6 +71,7 @@ export function SearchSection({
       : ''
 
   const { open } = useArtifact()
+  const hasArtifactProvider = useHasArtifactProvider()
 
   const totalResults =
     (searchResults?.results?.length || 0) +
@@ -76,7 +80,7 @@ export function SearchSection({
 
   const header = (
     <ProcessHeader
-      onInspect={() => open(tool)}
+      onInspect={hasArtifactProvider ? () => open(tool) : undefined}
       isLoading={isLoading && (isToolLoading || isSearching)}
       ariaExpanded={isOpen}
       label={
