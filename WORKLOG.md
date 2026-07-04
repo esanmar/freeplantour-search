@@ -298,3 +298,48 @@ retains all original Apache-2.0 license requirements. See `LICENSE`.
   `key={destination}:{currentUrl}` on `<Chat>`, which remounts (resets) the
   conversation whenever either value changes.
 
+## LOOP 8 — Destination-Aware Web Search
+
+- Created `lib/freeplantour/build-destination-search-query.ts` exporting
+  `buildDestinationSearchQuery({ userMessage, destination, locale? })`. Given
+  a query and a destination, guarantees the destination is present in the
+  final query text: no-ops if already present (case-insensitive), otherwise
+  appends it with a locale-appropriate connector (`in`/`en`/`à`/`a`/`em`/`в`/
+  `في`/`में`), or **prepends** it (no connector) for CJK locales (`ja`, `zh`,
+  `tw`, `ko`) where that reads more naturally — matching the
+  `Miranda de Ebro 子供...` ordering from the CLAUDE.md example.
+- **Two-layer design, documented in the function's own doc comment:** this
+  deterministic function is a *safety net*, not the primary mechanism for
+  query quality. It guarantees destination presence but can't do the
+  richer semantic rewrites CLAUDE.md's own examples show (e.g.
+  "restaurantes" -> "**mejores** restaurantes en Miranda de Ebro", or
+  extracting Japanese keywords like 観光/家族) — only the model can
+  meaningfully rephrase intent like that. So the **primary** mechanism is a
+  new "Search rules" section added to `lib/freeplantour/travel-system-prompt.ts`,
+  instructing the model to always phrase destination-aware queries itself
+  (with the same worked examples from CLAUDE.md); `buildDestinationSearchQuery`
+  is the deterministic backstop in case the model's query omits the
+  destination.
+- Wired the backstop into `lib/tools/search.ts`: `createSearchTool(fullModel,
+  freePlanTourContext?: { destination?, locale? })` now computes `filledQuery`
+  via `buildDestinationSearchQuery` when a destination is provided (before
+  the "searching" state is yielded, so the UI shows the actual
+  destination-aware query, not the raw model query), and passes `filledQuery`
+  to every search provider call. `logToolPayload` updated to log the final
+  query too.
+  - Intentionally scoped to `createSearchTool` only — the standalone
+    `search()` helper at the bottom of the same file (used by
+    `app/api/advanced-search/route.ts`, an unrelated feature) was left
+    untouched.
+- `lib/agents/researcher.ts`: `originalSearchTool = createSearchTool(model,
+  { destination, locale })`. Deliberately passes the **raw** (possibly
+  `undefined`) `destination`, not the `"this destination"` fallback used for
+  the system prompt — forcing a literal "this destination" string into a
+  search query would produce a broken, non-destination search, which is
+  worse than leaving the query untouched when no real destination is known.
+- Created `lib/freeplantour/build-destination-search-query.test.ts` with 11
+  cases: English/Spanish/French/German connectors, Japanese/Chinese
+  prepend-style, no-locale default, already-destination-specific query
+  (no duplication), case-insensitive duplicate detection, and empty-input
+  edge cases. Not yet executed for the same tooling reason as prior loops.
+

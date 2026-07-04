@@ -1,5 +1,6 @@
 import { type JSONValue, tool, UIToolInvocation } from 'ai'
 
+import { buildDestinationSearchQuery } from '@/lib/freeplantour/build-destination-search-query'
 import { getSearchSchemaForModel } from '@/lib/schema/search'
 import { SearchResults } from '@/lib/types'
 import {
@@ -17,8 +18,14 @@ import {
 
 /**
  * Creates a search tool with the appropriate schema for the given model.
+ * When `freePlanTourContext.destination` is provided, every search query is
+ * guaranteed to mention the destination (see buildDestinationSearchQuery),
+ * even if the model's own query omits it.
  */
-export function createSearchTool(fullModel: string) {
+export function createSearchTool(
+  fullModel: string,
+  freePlanTourContext?: { destination?: string; locale?: string }
+) {
   return tool({
     description: getSearchToolDescription(),
     inputSchema: getSearchSchemaForModel(fullModel),
@@ -34,10 +41,22 @@ export function createSearchTool(fullModel: string) {
       },
       context
     ) {
+      // FreePlanTour: guarantee the destination is present in the query
+      // text before it ever reaches a search provider (defense in depth —
+      // the system prompt also instructs the model to phrase
+      // destination-aware queries itself).
+      const filledQuery = freePlanTourContext?.destination
+        ? buildDestinationSearchQuery({
+            userMessage: query,
+            destination: freePlanTourContext.destination,
+            locale: freePlanTourContext.locale
+          })
+        : query
+
       // Yield initial searching state
       yield {
         state: 'searching' as const,
-        query
+        query: filledQuery
       }
       // Ensure max_results is at least 10
       const minResults = 10
@@ -47,8 +66,6 @@ export function createSearchTool(fullModel: string) {
       )
       const effectiveSearchDepth = search_depth as 'basic' | 'advanced'
 
-      // Use the original query as is - any provider-specific handling will be done in the provider
-      const filledQuery = query
       let searchResult: SearchResults
 
       // Determine which provider to use based on type
@@ -154,7 +171,7 @@ export function createSearchTool(fullModel: string) {
 
       console.log('completed search')
 
-      logToolPayload('search', query, {
+      logToolPayload('search', filledQuery, {
         results: searchResult.results,
         images: searchResult.images
       })

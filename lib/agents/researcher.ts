@@ -97,7 +97,7 @@ export function createResearcher({
     })
 
     // Create model-specific tools with proper typing
-    const originalSearchTool = createSearchTool(model)
+    const originalSearchTool = createSearchTool(model, { destination, locale })
     const askQuestionTool = createQuestionTool(model)
     const todoTools = createTodoTools()
 
