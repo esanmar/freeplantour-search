@@ -2,15 +2,15 @@ import { sql } from 'drizzle-orm'
 import type { Mock } from 'vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { db } from '@/lib/db'
 import type { TxInstance } from '@/lib/db/with-rls'
 import { RLSViolationError, withOptionalRLS, withRLS } from '@/lib/db/with-rls'
 
 // Mock the db module
+const mockDb = {
+  transaction: vi.fn()
+}
 vi.mock('@/lib/db', () => ({
-  db: {
-    transaction: vi.fn()
-  }
+  getDb: vi.fn(() => mockDb)
 }))
 
 // Helper to create a minimal mock transaction
@@ -33,7 +33,7 @@ describe('RLS Helper Functions', () => {
       const mockTx = createMockTx()
 
       // Mock the transaction
-      vi.mocked(db.transaction).mockImplementation(async callback => {
+      vi.mocked(mockDb.transaction).mockImplementation(async callback => {
         return callback(mockTx)
       })
 
@@ -57,7 +57,7 @@ describe('RLS Helper Functions', () => {
       const userId = "user'; DROP TABLE users; --"
       const mockTx = createMockTx()
 
-      vi.mocked(db.transaction).mockImplementation(async callback => {
+      vi.mocked(mockDb.transaction).mockImplementation(async callback => {
         return callback(mockTx)
       })
 
@@ -75,7 +75,7 @@ describe('RLS Helper Functions', () => {
         'new row violates row-level security policy for table "chats"'
       )
 
-      vi.mocked(db.transaction).mockRejectedValue(rlsError)
+      vi.mocked(mockDb.transaction).mockRejectedValue(rlsError)
 
       await expect(withRLS(userId, async () => {})).rejects.toThrow(
         RLSViolationError
@@ -90,7 +90,7 @@ describe('RLS Helper Functions', () => {
       const userId = 'user-123'
       const genericError = new Error('Database connection failed')
 
-      vi.mocked(db.transaction).mockRejectedValue(genericError)
+      vi.mocked(mockDb.transaction).mockRejectedValue(genericError)
 
       await expect(withRLS(userId, async () => {})).rejects.toThrow(
         genericError
@@ -101,7 +101,7 @@ describe('RLS Helper Functions', () => {
       const userId = 'user-123'
       const rlsErrorString = 'row-level security policy violation'
 
-      vi.mocked(db.transaction).mockRejectedValue(rlsErrorString)
+      vi.mocked(mockDb.transaction).mockRejectedValue(rlsErrorString)
 
       await expect(withRLS(userId, async () => {})).rejects.toThrow(
         RLSViolationError
@@ -116,7 +116,7 @@ describe('RLS Helper Functions', () => {
         select: mockSelect
       })
 
-      vi.mocked(db.transaction).mockImplementation(async callback => {
+      vi.mocked(mockDb.transaction).mockImplementation(async callback => {
         return callback(mockTx)
       })
 
@@ -134,7 +134,7 @@ describe('RLS Helper Functions', () => {
       const expectedResult = { id: 'result-1' }
       const mockTx = createMockTx()
 
-      vi.mocked(db.transaction).mockImplementation(async callback => {
+      vi.mocked(mockDb.transaction).mockImplementation(async callback => {
         return callback(mockTx)
       })
 
@@ -143,7 +143,7 @@ describe('RLS Helper Functions', () => {
       const result = await withOptionalRLS(userId, callback)
 
       // Verify transaction was used (withRLS path)
-      expect(db.transaction).toHaveBeenCalled()
+      expect(mockDb.transaction).toHaveBeenCalled()
       expect(mockTx.execute).toHaveBeenCalledWith(
         sql`SELECT set_config('app.current_user_id', ${userId}, true)`
       )
@@ -157,10 +157,10 @@ describe('RLS Helper Functions', () => {
       const result = await withOptionalRLS(null, callback)
 
       // Verify transaction was NOT used (direct db path)
-      expect(db.transaction).not.toHaveBeenCalled()
+      expect(mockDb.transaction).not.toHaveBeenCalled()
 
       // Verify callback was called with db directly
-      expect(callback).toHaveBeenCalledWith(db)
+      expect(callback).toHaveBeenCalledWith(mockDb)
 
       expect(result).toEqual(expectedResult)
     })
@@ -172,8 +172,8 @@ describe('RLS Helper Functions', () => {
       const result = await withOptionalRLS('', callback)
 
       // Empty string should be treated as no userId
-      expect(db.transaction).not.toHaveBeenCalled()
-      expect(callback).toHaveBeenCalledWith(db)
+      expect(mockDb.transaction).not.toHaveBeenCalled()
+      expect(callback).toHaveBeenCalledWith(mockDb)
       expect(result).toEqual(expectedResult)
     })
   })

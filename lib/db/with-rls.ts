@@ -1,10 +1,12 @@
 import { sql } from 'drizzle-orm'
 
-import { db } from '.'
+import { getDb } from '.'
 
 // Type for transaction or database instance
-export type DbInstance = typeof db
-export type TxInstance = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type DbInstance = ReturnType<typeof getDb>
+export type TxInstance = Parameters<
+  Parameters<DbInstance['transaction']>[0]
+>[0]
 
 /**
  * Custom error class for RLS violations
@@ -40,6 +42,7 @@ export async function withRLS<T>(
   userId: string,
   callback: (tx: TxInstance) => Promise<T>
 ): Promise<T> {
+  const db = getDb()
   try {
     return await db.transaction(async tx => {
       // Set the user ID for this transaction
@@ -86,5 +89,5 @@ export async function withOptionalRLS<T>(
   }
 
   // Execute without RLS context for public operations
-  return callback(db)
+  return callback(getDb())
 }
