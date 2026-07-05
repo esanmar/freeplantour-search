@@ -1,6 +1,7 @@
 import { Langfuse } from 'langfuse'
 
 import { updateMessageFeedback } from '@/lib/actions/feedback'
+import { isDatabaseConfigured } from '@/lib/db'
 import { hasSupabasePublicConfig } from '@/lib/supabase/keys'
 import { createClient } from '@/lib/supabase/server'
 import { isTracingEnabled } from '@/lib/utils/telemetry'
@@ -58,6 +59,13 @@ export async function POST(req: Request) {
 
     // Update the message metadata with the feedback score using the action
     if (messageId) {
+      if (!isDatabaseConfigured()) {
+        return Response.json(
+          { error: 'Database is not configured' },
+          { status: 503 }
+        )
+      }
+
       const result = await updateMessageFeedback(messageId, score, userId)
 
       if (!result.success) {
