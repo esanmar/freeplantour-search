@@ -12,6 +12,7 @@ import {
   MODEL_SELECTION_COOKIE,
   serializeModelSelectionCookie
 } from '@/lib/config/model-selection-cookie'
+import { NO_MODEL_AVAILABLE_MESSAGE } from '@/lib/constants'
 import { ModelSelectorData } from '@/lib/types/model-selector'
 import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
@@ -101,10 +102,10 @@ export function ModelSelectorClient({ data }: ModelSelectorClientProps) {
         variant="outline"
         className="h-auto gap-1 rounded-full border-none bg-muted px-3 py-2 text-sm shadow-none transition-[background-color,color,box-shadow,transform]"
         disabled
-        title="No enabled models are available"
+        title={NO_MODEL_AVAILABLE_MESSAGE}
       >
         <span className="truncate max-w-52 text-xs font-medium">
-          No enabled model available
+          Assistant not configured
         </span>
       </Button>
     )
