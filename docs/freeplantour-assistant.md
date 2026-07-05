@@ -20,8 +20,9 @@ changes before wiring up the embed.
 
 ## Required variables
 
-At minimum, set **one AI provider**, **one search provider**, **a database**,
-and the guest-chat flag the modal depends on:
+For the FreePlanTour guest modal — the actual deliverable of this project —
+set **one AI provider**, **one search provider**, and the guest-chat flag.
+**A database is not required** for this use case:
 
 ```bash
 # One AI provider (see "AI provider setup" below for the rest)
@@ -30,43 +31,46 @@ OPENAI_API_KEY=your_openai_key
 # One search provider (see "Search provider setup" below for the rest)
 TAVILY_API_KEY=your_tavily_key
 
-# REQUIRED for any build/deployment — see "Why DATABASE_URL is required" below
-DATABASE_URL=postgresql://user:password@host:5432/dbname
-
 # REQUIRED for the embedded modal specifically — see below
 ENABLE_GUEST_CHAT=true
 ```
 
-### Why `DATABASE_URL` is required (even for guest-only / modal-only use)
+`DATABASE_URL` is required only if you also want saved/persisted chats,
+message feedback, or the library (file/notes) feature — i.e. the
+authenticated, Morphic-style app that sits alongside the modal. See "Why
+`DATABASE_URL` is now optional for the guest modal" below.
 
-`DATABASE_URL` is **required to build the app at all**, not just for chat
-history persistence — this applies even if the deployment only ever serves
-the guest/modal path and never touches the authenticated app.
+### Why `DATABASE_URL` is now optional for the guest modal
 
-The reason is architectural, not feature-based: `lib/db/index.ts` throws at
-**module-evaluation time** (top-level code, not inside a function) if
-neither `DATABASE_URL` nor `DATABASE_RESTRICTED_URL` is set. `app/api/chat/route.ts`
-— the single API route both the authenticated app *and* the guest/modal path
-share — statically imports `loadChat` from `lib/actions/chat.ts`, which
-imports `lib/db/actions.ts`, which imports `lib/db/index.ts`. Next.js
-evaluates this whole import graph during its build-time "Collecting page
-data" step for every route, regardless of which runtime branch
-(`ENABLE_AUTH`/`ENABLE_GUEST_CHAT`) actually executes at request time. So the
-missing env var crashes the **build**, before any request-time feature
-flags are even read.
+Earlier versions of this doc said `DATABASE_URL` was required to build the
+app **at all**, based on a real failed Vercel deployment. That was true at
+the time: `lib/db/index.ts` used to throw at **module-evaluation time**
+(top-level code, not inside a function) if no database env var was set, and
+`app/api/chat/route.ts` — shared by both the authenticated app and the
+guest/modal path — statically imported a chain that reached it, so Next.js's
+build-time page-data collection crashed regardless of which runtime branch
+would actually execute.
 
-This was confirmed directly: a real deployment of this branch to Vercel
-without `DATABASE_URL` failed with
-`Error: DATABASE_URL or DATABASE_RESTRICTED_URL environment variable is not set`
-while collecting page data for `/api/feedback` — the same import chain
-applies to `/api/chat`, `/api/chats`, `/api/upload`, and `/search/[id]`.
+**This has been fixed.** `lib/db/index.ts` now exports `isDatabaseConfigured()`
+and a lazy `getDb()` instead of an eagerly-created client — the database
+connection is only created the first time a DB-backed function is actually
+*called*, never merely imported. Since the guest/modal chat path
+(`create-ephemeral-chat-stream-response.ts`) never calls any DB function,
+it now works — and the app now builds — with no database configured at all.
 
-**If you don't have a database yet:** any Postgres works — Vercel Postgres,
-Neon, Supabase, or a local instance. Docker Compose provisions one
-automatically (see `docker-compose.yaml`), which is why Docker deployments
-never need you to set this manually — Vercel deployments get no such
-automatic provisioning unless a Postgres storage integration is separately
-attached to the project.
+Routes that genuinely need a database handle a missing one gracefully at
+runtime instead of crashing:
+- `GET /api/chats` and `POST /api/feedback` (when a `messageId` is given)
+  return `503 { "error": "Database is not configured" }`.
+- `GET /search/[id]` renders a plain explanatory message instead of
+  throwing.
+
+**If you do want saved chats, feedback, or the library feature:** any
+Postgres works — Vercel Postgres, Neon, Supabase, or a local instance.
+Docker Compose provisions one automatically (see `docker-compose.yaml`).
+Set `DATABASE_URL` (and optionally `DATABASE_RESTRICTED_URL` for a
+row-level-security-scoped connection) and those features activate
+automatically — no other configuration is needed.
 
 ### Why `ENABLE_GUEST_CHAT=true` is required
 
@@ -111,6 +115,10 @@ information (events, hours, prices) and will say so rather than guessing.
 
 ## Optional variables
 
+- `DATABASE_URL` (and optionally `DATABASE_RESTRICTED_URL`) — enables saved
+  chats, message feedback, and the library (file/notes) feature. Not
+  required for the guest-only modal; see "Why `DATABASE_URL` is now
+  optional for the guest modal" above.
 - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` /
   `SUPABASE_SECRET_KEY` — enables the authenticated chat page and chat
   history persistence. Not required for the guest-only modal.
@@ -211,16 +219,12 @@ returned. To connect it to a real source later:
 - Morphic's original circular logo mark (not text) still appears as the
   assistant avatar and empty-state icon; left as-is per an explicit product
   decision (see Loop 10 in `WORKLOG.md`).
-- **`DATABASE_URL` is a hard build-time dependency, not a lazily-loaded
-  one** — `lib/db/index.ts` throws at module-evaluation time, so a deploy
-  with no database configured fails to build entirely (confirmed via a real
-  failed Vercel deployment), even for a guest-only/modal-only use case that
-  never actually queries the database at runtime. Making this genuinely
-  optional would require either lazy-loading the DB client (dynamic
-  `import()` only inside the code paths that use it) or gating
-  `app/api/chat/route.ts`'s import of the authenticated
-  (`createChatStreamResponse`/`loadChat`) branch behind a build-time or
-  runtime check — neither exists today.
+- ~~`DATABASE_URL` is a hard build-time dependency~~ — **fixed.**
+  `lib/db/index.ts` now lazily creates its connection via `getDb()`/
+  `isDatabaseConfigured()` instead of connecting/throwing at module-load
+  time, and `/api/chats`, `/api/feedback`, and `/search/[id]` all handle a
+  missing database gracefully at runtime instead of crashing the build. See
+  the git history / WORKLOG addendum for the before/after.
 
 ## Legal
 

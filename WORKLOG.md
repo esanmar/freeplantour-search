@@ -717,3 +717,73 @@ check) — neither exists today.
 documentation was removed; the inaccurate parts were corrected to match the
 codebase's actual (non-lazy) behavior.
 
+## Addendum 2 — Make DATABASE_URL genuinely optional for the guest modal
+
+Follow-up to the audit above: rather than only documenting the hard
+build-time DB dependency, fixed it, so `DATABASE_URL` is no longer required
+at all for the FreePlanTour guest/modal use case.
+
+- **`lib/db/index.ts`** rewritten: no more top-level throw or top-level
+  `postgres(...)` client creation. Now exports `isDatabaseConfigured()`
+  (pure env check) and `getDb()` (memoized, lazy — creates the connection
+  on first real call, throws `DatabaseNotConfiguredError` if unconfigured).
+  Preserves all prior behavior exactly (restricted-user preference, SSL
+  config, dev-only RLS verification logging, test-mode dummy connection
+  string) — just deferred to first call instead of module load.
+- **`lib/db/with-rls.ts`** and **`lib/db/actions.ts`**: replaced their
+  top-level `import { db } from '.'` with `getDb()` calls inside the
+  functions that actually need it (`withRLS`, `withOptionalRLS`,
+  `upsertMessage`'s no-userId branch). Every other export in `actions.ts`
+  already routed through `withRLS`/`withOptionalRLS`, so no further changes
+  needed there.
+- **Dead-code cleanup**: `lib/actions/feedback.ts` and
+  `lib/actions/site-feedback.ts` each had an `import { db } from '@/lib/db'`
+  that was never referenced anywhere in the file (real DB access in both
+  goes through `withOptionalRLS`) — removed both.
+- **`lib/actions/chat.ts`**: added `loadChatIfDatabaseConfigured()` as a
+  safe wrapper returning `null` instead of throwing when no DB is
+  configured — for future guest/modal paths where a missing database is
+  expected and non-fatal. Note: today's guest/ephemeral chat path
+  (`create-ephemeral-chat-stream-response.ts`) never calls `loadChat` at
+  all, so there's no existing call site that needs this yet; added per
+  spec as forward-compatible, not wired into a fabricated call site (would
+  have violated "do not fake database behavior").
+- **Architectural decision — no dedicated `/api/freeplantour/chat` route**:
+  traced the exact guest-path code (`app/api/chat/route.ts:238`, `loadChat`
+  called only inside `if (!isGuest && userId)`) and confirmed the lazy-load
+  fix alone already makes the existing single route safe: the static import
+  no longer executes anything at build time, and the guest branch never
+  calls a DB function at runtime. Presented both options from the spec to
+  the user; **user chose to keep the single route** rather than duplicate
+  rate-limiting/analytics/model-selection/search-mode logic across two
+  routes. Added a code comment at the `loadChat` import documenting the
+  invariant so it isn't accidentally broken later.
+- **Graceful runtime handling for genuinely DB-dependent routes**:
+  - `app/api/chats/route.ts` — returns `503 {"error":"Database is not
+    configured"}` before attempting to list saved chats.
+  - `app/api/feedback/route.ts` — same 503, but only in the branch that
+    actually needs DB (a `messageId` was provided); the existing
+    tracing-disabled early-return above it already needed no DB.
+  - `app/search/[id]/page.tsx` — both `generateMetadata` and the page
+    component check `isDatabaseConfigured()` first and render a plain
+    explanatory message instead of calling `loadChat()` and throwing.
+  - `app/api/upload/route.ts` — reviewed, left unchanged: it already skips
+    the DB-touching `createLibraryFile` call entirely when
+    `ENABLE_AUTH=false`, and wraps it in its own try/catch that logs and
+    continues on failure — already graceful.
+- **Docs updated** (`.env.local.example`, `docs/freeplantour-assistant.md`):
+  moved `ENABLE_GUEST_CHAT=true` into the "Required configuration" section
+  (uncommented — it's the actual primary use case) and moved "Database
+  Configuration" into "Optional features," rewriting both to state plainly
+  that `DATABASE_URL` is now optional for the guest modal and required only
+  for saved chats/feedback/library. Removed the now-fixed "hard build-time
+  dependency" bullet from Known Limitations (struck through with a note
+  pointing to this fix, rather than silently deleted, so the history reads
+  cleanly).
+- **Test updates**: `lib/db/__tests__/with-rls.test.ts` and
+  `lib/actions/__tests__/feedback.test.ts` updated to mock `getDb()`
+  instead of the removed `db` export. Not yet executed in this environment
+  for the same Node-version reason documented in the Loop 14 addendum
+  (`vitest` requires Node ≥20; this environment has 18.20.4) — must be run
+  for real before this fix can be considered fully validated.
+
