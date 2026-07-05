@@ -1,243 +1,163 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-
 import {
-  IconBulb as Bulb,
-  IconPencil as Pencil,
-  IconScale as Scale,
-  IconSearch as Search,
-  IconSettings as Settings,
-  IconTool as Tool,
+  IconBabyCarriage as BabyCarriage,
+  IconGift as Gift,
+  IconMapPin as MapPin,
+  IconRoute as Route,
+  IconToolsKitchen2 as ToolsKitchen,
   type TablerIcon
 } from '@tabler/icons-react'
 
 import { captureClient } from '@/lib/analytics/posthog-client'
 import { cn } from '@/lib/utils'
 
-import { Button } from './ui/button'
-
-// Constants for timing delays
-const FOCUS_OUT_DELAY_MS = 100 // Delay to ensure focus has actually moved
-
-interface ActionCategory {
+interface TravelSuggestion {
   icon: TablerIcon
-  label: string
   key: string
+  getLabel: (destination?: string) => string
 }
 
-const actionCategories: ActionCategory[] = [
-  {
-    icon: Scale,
-    label: 'Decide',
-    key: 'decide'
-  },
-  {
-    icon: Tool,
-    label: 'Troubleshoot',
-    key: 'troubleshoot'
-  },
-  {
-    icon: Settings,
-    label: 'How-to',
-    key: 'howto'
-  },
-  {
-    icon: Bulb,
-    label: 'Understand',
-    key: 'understand'
-  },
-  {
-    icon: Pencil,
-    label: 'Create',
-    key: 'create'
-  }
-]
+// Destination-aware travel suggestions shown in the empty state. Falls back
+// to a generic phrasing (no destination name) when none is known yet.
+function buildSuggestions(locale?: string): TravelSuggestion[] {
+  const isSpanish = locale?.slice(0, 2).toLowerCase() === 'es'
 
-// Onboarding examples are tuned to showcase grounded, GenUI-rich answers
-// (images, comparison tables, structured depth) for concrete, self-contained
-// tasks — the patterns that correlate with follow-up in real usage. Keep each
-// example self-contained (no "my notes"/"this file" referencing absent context).
-const promptSamples: Record<string, string[]> = {
-  troubleshoot: [
-    'My car starts then immediately stalls, but the electronics still work',
-    'Wi-Fi keeps dropping on one laptop but not my phone — how do I fix it?',
-    "My sourdough starter isn't rising after a week — what's wrong?",
-    'Next.js build fails with "Module not found" only in production'
-  ],
-  howto: [
-    'Move my photos off Google Photos without losing albums',
-    'Set up a Proxmox home server for self-hosting',
-    'Convert a folder of .txt files to clean HTML',
-    'Set up a Plex media server to stream my movies'
-  ],
-  decide: [
-    'Tesla vs Rivian — which should I buy?',
-    'Standing vs sitting desk for lower-back pain — which and why?',
-    'A budget mirrorless camera for travel under $1,000',
-    'Notion vs Obsidian for a personal knowledge base'
-  ],
-  understand: [
-    'What causes the northern lights?',
-    'Why did the dinosaurs really go extinct?',
-    'How does a nuclear reactor actually generate electricity?',
-    // Timely slot — refresh seasonally (currently WWDC 2026).
-    'What did Apple announce at WWDC 2026?'
-  ],
-  create: [
-    'Draft a 5-question Ancient Rome quiz with A–D answers',
-    'Outline a peer-support group for a prison setting',
-    'Create a high-protein meal plan for a week on a budget',
-    'Draft a beginner 3-day-per-week workout split'
+  if (isSpanish) {
+    return [
+      {
+        icon: MapPin,
+        key: 'see-one-day',
+        getLabel: destination =>
+          destination
+            ? `¿Qué puedo ver en ${destination} en un día?`
+            : '¿Qué puedo ver en un día?'
+      },
+      {
+        icon: Route,
+        key: 'itinerary-2-day',
+        getLabel: destination =>
+          destination
+            ? `Hazme una ruta de 2 días por ${destination}`
+            : 'Hazme una ruta de 2 días'
+      },
+      {
+        icon: BabyCarriage,
+        key: 'with-kids',
+        getLabel: destination =>
+          destination
+            ? `¿Qué puedo hacer con niños en ${destination}?`
+            : '¿Qué puedo hacer con niños?'
+      },
+      {
+        icon: Gift,
+        key: 'free-plans',
+        getLabel: destination =>
+          destination
+            ? `Planes gratis en ${destination}`
+            : 'Planes gratis en este destino'
+      },
+      {
+        icon: ToolsKitchen,
+        key: 'restaurants',
+        getLabel: destination =>
+          destination
+            ? `Restaurantes recomendados en ${destination}`
+            : 'Restaurantes recomendados'
+      }
+    ]
+  }
+
+  return [
+    {
+      icon: MapPin,
+      key: 'see-one-day',
+      getLabel: destination =>
+        destination
+          ? `What can I see in ${destination} in one day?`
+          : 'What can I see in one day?'
+    },
+    {
+      icon: Route,
+      key: 'itinerary-2-day',
+      getLabel: destination =>
+        destination
+          ? `Create a 2-day itinerary for ${destination}`
+          : 'Create a 2-day itinerary'
+    },
+    {
+      icon: BabyCarriage,
+      key: 'with-kids',
+      getLabel: destination =>
+        destination
+          ? `What can I do with kids in ${destination}?`
+          : 'What can I do with kids?'
+    },
+    {
+      icon: Gift,
+      key: 'free-plans',
+      getLabel: destination =>
+        destination
+          ? `Free things to do in ${destination}`
+          : 'Free things to do here'
+    },
+    {
+      icon: ToolsKitchen,
+      key: 'restaurants',
+      getLabel: destination =>
+        destination
+          ? `Recommended restaurants in ${destination}`
+          : 'Recommended restaurants'
+    }
   ]
 }
 
 interface ActionButtonsProps {
   onSelectPrompt: (prompt: string) => void
-  onCategoryClick: (category: string) => void
-  inputRef?: React.RefObject<HTMLTextAreaElement>
+  destination?: string
+  locale?: string
   className?: string
 }
 
 export function ActionButtons({
   onSelectPrompt,
-  onCategoryClick,
-  inputRef,
+  destination,
+  locale,
   className
 }: ActionButtonsProps) {
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const handleCategoryClick = (category: ActionCategory) => {
-    setActiveCategory(category.key)
-    onCategoryClick(category.label)
-    captureClient('example_category_opened', { category: category.key })
-  }
-
-  const handlePromptClick = (prompt: string) => {
-    captureClient('example_prompt_clicked', {
-      category: activeCategory,
-      prompt
-    })
-    setActiveCategory(null)
-    onSelectPrompt(prompt)
-  }
-
-  const resetToButtons = () => {
-    setActiveCategory(null)
-  }
-
-  // Handle Escape key and clicks outside (including focus loss)
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && activeCategory) {
-        resetToButtons()
-      }
-    }
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        if (activeCategory) {
-          // Check if click is not on the input field
-          if (!inputRef?.current?.contains(e.target as Node)) {
-            resetToButtons()
-          }
-        }
-      }
-    }
-
-    const handleFocusOut = () => {
-      // Check if focus is moving outside both the container and input
-      setTimeout(() => {
-        const activeElement = document.activeElement
-        if (
-          activeCategory &&
-          !containerRef.current?.contains(activeElement) &&
-          activeElement !== inputRef?.current
-        ) {
-          resetToButtons()
-        }
-      }, FOCUS_OUT_DELAY_MS)
-    }
-
-    document.addEventListener('keydown', handleEscape)
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('focusout', handleFocusOut)
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape)
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('focusout', handleFocusOut)
-    }
-  }, [activeCategory, inputRef])
-
-  // Max height for samples (4 items up to 2 lines each + padding); overflow scrolls
-  const containerHeight = 'h-[232px]'
+  const suggestions = buildSuggestions(locale)
 
   return (
     <div
-      ref={containerRef}
-      className={cn('relative', containerHeight, className)}
+      className={cn(
+        'mx-auto flex w-full max-w-xl flex-col gap-1 px-2',
+        className
+      )}
     >
-      <div className="relative h-full">
-        {/* Action buttons */}
-        <div
-          className={cn(
-            'absolute inset-0 flex items-start justify-center pt-2 transition-opacity duration-[180ms] ease-[var(--motion-ease-out)]',
-            activeCategory ? 'opacity-0 pointer-events-none' : 'opacity-100'
-          )}
-        >
-          <div className="flex flex-wrap justify-center gap-2 px-2">
-            {actionCategories.map(category => {
-              const Icon = category.icon
-              return (
-                <Button
-                  key={category.key}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    'flex items-center gap-2 whitespace-nowrap rounded-full',
-                    'text-xs sm:text-sm px-3 sm:px-4'
-                  )}
-                  onClick={() => handleCategoryClick(category)}
-                >
-                  <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span>{category.label}</span>
-                </Button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Prompt samples */}
-        <div
-          className={cn(
-            'absolute inset-0 space-y-1 overflow-y-auto py-1 transition-opacity duration-[180ms] ease-[var(--motion-ease-out)]',
-            !activeCategory ? 'opacity-0 pointer-events-none' : 'opacity-100'
-          )}
-        >
-          {activeCategory &&
-            promptSamples[activeCategory]?.map((prompt, index) => (
-              <button
-                key={index}
-                type="button"
-                className={cn(
-                  'w-full rounded-md px-3 py-2 text-left text-sm',
-                  'transition-colors duration-[140ms] ease-[var(--motion-ease-out)] hover:bg-muted',
-                  'flex items-center gap-2 group'
-                )}
-                onClick={() => handlePromptClick(prompt)}
-              >
-                <Search className="h-3 w-3 text-muted-foreground flex-shrink-0 group-hover:text-foreground" />
-                <span className="line-clamp-2">{prompt}</span>
-              </button>
-            ))}
-        </div>
-      </div>
+      {suggestions.map(suggestion => {
+        const label = suggestion.getLabel(destination)
+        const Icon = suggestion.icon
+        return (
+          <button
+            key={suggestion.key}
+            type="button"
+            className={cn(
+              'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm',
+              'transition-colors duration-[140ms] ease-[var(--motion-ease-out)] hover:bg-muted'
+            )}
+            onClick={() => {
+              captureClient('example_prompt_clicked', {
+                category: suggestion.key,
+                prompt: label
+              })
+              onSelectPrompt(label)
+            }}
+          >
+            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="line-clamp-2">{label}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -26,6 +26,7 @@ import {
 import { toast } from 'sonner'
 
 import { captureClient } from '@/lib/analytics/posthog-client'
+import { NO_MODEL_AVAILABLE_MESSAGE } from '@/lib/constants'
 import { SHORTCUT_EVENTS } from '@/lib/keyboard-shortcuts'
 import {
   isAdaptiveModeAuthBlocked,
@@ -111,6 +112,9 @@ interface ChatPanelProps {
   emptyStatePlaceholder?: string
   /** Heading shown above the input before the first message is sent */
   emptyStateHeading?: string
+  /** FreePlanTour destination context, used to personalize empty-state suggestions */
+  destination?: string
+  locale?: string
 }
 
 export function ChatPanel({
@@ -138,8 +142,10 @@ export function ChatPanel({
   onAdaptiveModeAuthRequired,
   modelSelectorData,
   sections = [],
-  emptyStatePlaceholder = 'Ask anything...',
-  emptyStateHeading = 'What would you like to know?'
+  emptyStatePlaceholder = 'Ask what to see, where to eat, or how to plan your visit',
+  emptyStateHeading = 'FreePlanTour',
+  destination,
+  locale
 }: ChatPanelProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -472,7 +478,7 @@ export function ChatPanel({
               return
             }
             if (!hasAvailableModels) {
-              toast.error('No enabled model is available')
+              toast.error(NO_MODEL_AVAILABLE_MESSAGE)
               return
             }
             const uploaded = uploadedFiles.filter(f => f.status === 'uploaded')
@@ -550,7 +556,7 @@ export function ChatPanel({
 
           if (!hasAvailableModels) {
             e.preventDefault()
-            toast.error('No enabled model is available')
+            toast.error(NO_MODEL_AVAILABLE_MESSAGE)
             return
           }
           handleSubmit(e)
@@ -937,7 +943,7 @@ export function ChatPanel({
                 title={
                   hasAvailableModels
                     ? undefined
-                    : 'No enabled model is available'
+                    : NO_MODEL_AVAILABLE_MESSAGE
                 }
               >
                 {isLoading ? (
@@ -966,15 +972,8 @@ export function ChatPanel({
                 inputRef.current?.blur()
               }, INPUT_UPDATE_DELAY_MS)
             }}
-            onCategoryClick={category => {
-              // Set the category in the input
-              handleInputChange({
-                target: { value: category }
-              } as React.ChangeEvent<HTMLTextAreaElement>)
-              // Focus the input
-              inputRef.current?.focus()
-            }}
-            inputRef={inputRef}
+            destination={destination}
+            locale={locale}
             className="mt-2 hidden md:block"
           />
         )}
