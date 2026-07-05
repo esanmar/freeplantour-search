@@ -786,4 +786,24 @@ at all for the FreePlanTour guest/modal use case.
   for the same Node-version reason documented in the Loop 14 addendum
   (`vitest` requires Node ≥20; this environment has 18.20.4) — must be run
   for real before this fix can be considered fully validated.
+- **Build validated for real** via the existing linked Vercel project
+  (`esanmar-s-team/morphic-main`, created in the previous deployment
+  session). Confirmed zero environment variables were configured
+  (`vercel env ls` → "No Environment Variables found"), then ran
+  `vercel deploy --yes` again on this exact commit lineage. Result:
+  `"readyState": "READY"`, full build success in 49s, all previously-crashing
+  routes (`/api/chat`, `/api/chats`, `/api/feedback`, `/api/upload`,
+  `/search/[id]`) now compile and appear in the route table as expected
+  dynamic (`ƒ`) routes. This is the same deployment target that failed with
+  `Error: DATABASE_URL or DATABASE_RESTRICTED_URL environment variable is
+  not set` before this fix — direct before/after proof, not just local
+  reasoning. Preview URL:
+  https://morphic-main-ltf29y449-esanmar-s-team.vercel.app
+  - **Not independently verified**: the "with DATABASE_URL configured,
+    saved-chat features still work" half — no live Postgres instance was
+    available to test against. Architecturally low-risk (the lazy refactor
+    only changes *when* the connection is created, not how, so behavior
+    with a real DB set should be unchanged), but this is reasoning, not
+    empirical confirmation — recommend a live spot-check with a real
+    database connected before fully trusting the authenticated path.
 
