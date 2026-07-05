@@ -4,6 +4,7 @@ import { UIMessage } from 'ai'
 
 import { loadChat } from '@/lib/actions/chat'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
+import { isDatabaseConfigured } from '@/lib/db'
 import { getModelSelectorData } from '@/lib/model-selector/get-model-selector-data'
 
 import { Chat } from '@/components/chat'
@@ -13,6 +14,10 @@ export const maxDuration = 60
 export async function generateMetadata(props: {
   params: Promise<{ id: string }>
 }) {
+  if (!isDatabaseConfigured()) {
+    return { title: 'Search' }
+  }
+
   const { id } = await props.params
   const userId = await getCurrentUserId()
 
@@ -30,6 +35,15 @@ export async function generateMetadata(props: {
 export default async function SearchPage(props: {
   params: Promise<{ id: string }>
 }) {
+  if (!isDatabaseConfigured()) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+        Saved chats are not available right now: the database is not
+        configured for this deployment.
+      </div>
+    )
+  }
+
   const { id } = await props.params
   const userId = await getCurrentUserId()
 

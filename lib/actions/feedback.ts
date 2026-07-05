@@ -3,7 +3,6 @@
 import { eq } from 'drizzle-orm'
 import { Langfuse } from 'langfuse'
 
-import { db } from '@/lib/db'
 import { messages } from '@/lib/db/schema'
 import { withOptionalRLS } from '@/lib/db/with-rls'
 import type { UIMessageMetadata } from '@/lib/types/ai'

@@ -58,7 +58,12 @@ export function Chat({
   isGuest = false,
   isCloudDeployment = false,
   libraryAvailable = true,
-  modelSelectorData
+  modelSelectorData,
+  destination,
+  locale,
+  currentUrl,
+  emptyStatePlaceholder,
+  emptyStateHeading
 }: {
   id?: string
   savedMessages?: UIMessage[]
@@ -67,6 +72,14 @@ export function Chat({
   isCloudDeployment?: boolean
   libraryAvailable?: boolean
   modelSelectorData?: ModelSelectorData
+  /** FreePlanTour destination context (see lib/freeplantour/types.ts) */
+  destination?: string
+  locale?: string
+  currentUrl?: string
+  /** Placeholder shown before the first message is sent */
+  emptyStatePlaceholder?: string
+  /** Heading shown above the input before the first message is sent */
+  emptyStateHeading?: string
 }) {
   const router = useRouter()
 
@@ -166,6 +179,9 @@ export function Chat({
             analyticsId: getDistinctId(),
             ...(relatedEnabled === undefined ? {} : { relatedEnabled }),
             ...(isGuest ? { messages } : {}),
+            ...(destination ? { destination } : {}),
+            ...(locale ? { locale } : {}),
+            ...(currentUrl ? { currentUrl } : {}),
             message:
               trigger === 'regenerate-message' &&
               messageToRegenerate?.role === 'user'
@@ -627,6 +643,8 @@ export function Chat({
           onAdaptiveModeAuthRequired={showAdaptiveModeAuthModal}
           modelSelectorData={modelSelectorData}
           sections={sections}
+          emptyStatePlaceholder={emptyStatePlaceholder}
+          emptyStateHeading={emptyStateHeading}
         />
         <DragOverlay visible={dragHandlers.isDragging} />
         <ErrorModal

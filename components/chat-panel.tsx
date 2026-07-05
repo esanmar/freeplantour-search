@@ -107,6 +107,10 @@ interface ChatPanelProps {
   modelSelectorData?: ModelSelectorData
   /** Chat sections for message navigation dots */
   sections?: { id: string; userMessage: UIMessage }[]
+  /** Placeholder shown before the first message is sent (e.g. FreePlanTour's "Ask about this destination...") */
+  emptyStatePlaceholder?: string
+  /** Heading shown above the input before the first message is sent */
+  emptyStateHeading?: string
 }
 
 export function ChatPanel({
@@ -133,7 +137,9 @@ export function ChatPanel({
   isCloudDeployment = false,
   onAdaptiveModeAuthRequired,
   modelSelectorData,
-  sections = []
+  sections = [],
+  emptyStatePlaceholder = 'Ask anything...',
+  emptyStateHeading = 'What would you like to know?'
 }: ChatPanelProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -441,7 +447,7 @@ export function ChatPanel({
         <div className="mb-6 md:mb-10 flex flex-col items-center gap-2 md:gap-4">
           <IconBlinkingLogo className="size-12" />
           <h1 className="text-xl md:text-2xl font-medium text-foreground">
-            What would you like to know?
+            {emptyStateHeading}
           </h1>
         </div>
       )}
@@ -758,7 +764,9 @@ export function ChatPanel({
             onCompositionEnd={handleCompositionEnd}
             onFocus={() => setIsInputFocused(true)}
             onBlur={() => setIsInputFocused(false)}
-            placeholder={messages.length > 0 ? 'Reply...' : 'Ask anything...'}
+            placeholder={
+              messages.length > 0 ? 'Reply...' : emptyStatePlaceholder
+            }
             spellCheck={false}
             value={input}
             disabled={isLoading || isToolInvocationInProgress()}

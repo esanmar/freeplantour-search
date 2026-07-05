@@ -5,72 +5,84 @@ import postgres from 'postgres'
 import * as relations from './relations'
 import * as schema from './schema'
 
-// For server-side usage only
-// Use restricted user for application if available, otherwise fall back to regular user
-const isDevelopment = process.env.NODE_ENV === 'development'
-const isTest = process.env.NODE_ENV === 'test'
+/**
+ * Thrown by getDb() when no DATABASE_URL/DATABASE_RESTRICTED_URL is
+ * configured. Callers that can operate without a database (e.g. the
+ * FreePlanTour guest/modal chat path) should check isDatabaseConfigured()
+ * first instead of relying on this being thrown; callers that genuinely
+ * require a database should let it propagate (or catch it to return a
+ * clear "Database is not configured" response).
+ */
+export class DatabaseNotConfiguredError extends Error {
+  constructor(
+    message = 'DATABASE_URL or DATABASE_RESTRICTED_URL environment variable is not set'
+  ) {
+    super(message)
+    this.name = 'DatabaseNotConfiguredError'
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, DatabaseNotConfiguredError)
+    }
+  }
+}
 
-if (
-  !process.env.DATABASE_URL &&
-  !process.env.DATABASE_RESTRICTED_URL &&
-  !isTest
-) {
-  throw new Error(
-    'DATABASE_URL or DATABASE_RESTRICTED_URL environment variable is not set'
+export function isDatabaseConfigured(): boolean {
+  return Boolean(
+    process.env.DATABASE_URL || process.env.DATABASE_RESTRICTED_URL
   )
 }
 
-// Connection with connection pooling for server environments
-// Prefer restricted user for application runtime
-const connectionString =
-  process.env.DATABASE_RESTRICTED_URL ?? // Prefer restricted user
-  process.env.DATABASE_URL ??
-  (isTest ? 'postgres://user:pass@localhost:5432/testdb' : undefined)
+function createDbClient() {
+  const isTest = process.env.NODE_ENV === 'test'
+  const isDevelopment = process.env.NODE_ENV === 'development'
 
-if (!connectionString) {
-  throw new Error(
-    'DATABASE_URL or DATABASE_RESTRICTED_URL environment variable is not set'
-  )
-}
+  // Prefer restricted user for application runtime
+  const connectionString =
+    process.env.DATABASE_RESTRICTED_URL ?? // Prefer restricted user
+    process.env.DATABASE_URL ??
+    (isTest ? 'postgres://user:pass@localhost:5432/testdb' : undefined)
 
-// Log which connection is being used (for debugging)
-if (isDevelopment) {
-  console.log(
-    '[DB] Using connection:',
-    process.env.DATABASE_RESTRICTED_URL
-      ? 'Restricted User (RLS Active)'
-      : 'Owner User (RLS Bypassed)'
-  )
-}
+  if (!connectionString) {
+    throw new DatabaseNotConfiguredError()
+  }
 
-// SSL configuration: Use environment variable to control SSL
-// DATABASE_SSL_DISABLED=true disables SSL completely (for local/Docker PostgreSQL)
-// Default is to enable SSL with certificate verification (for cloud databases like Neon, Supabase)
-const sslConfig =
-  process.env.DATABASE_SSL_DISABLED === 'true'
-    ? false // Disable SSL entirely for local PostgreSQL
-    : { rejectUnauthorized: true } // Enable SSL with verification for cloud DBs
+  // SSL configuration: Use environment variable to control SSL
+  // DATABASE_SSL_DISABLED=true disables SSL completely (for local/Docker PostgreSQL)
+  // Default is to enable SSL with certificate verification (for cloud databases like Neon, Supabase)
+  const sslConfig =
+    process.env.DATABASE_SSL_DISABLED === 'true'
+      ? false // Disable SSL entirely for local PostgreSQL
+      : { rejectUnauthorized: true } // Enable SSL with verification for cloud DBs
 
-const client = postgres(connectionString, {
-  ssl: sslConfig,
-  prepare: false,
-  max: 20 // Max 20 connections
-})
+  const client = postgres(connectionString, {
+    ssl: sslConfig,
+    prepare: false,
+    max: 20 // Max 20 connections
+  })
 
-export const db = drizzle(client, {
-  schema: { ...schema, ...relations }
-})
+  const instance = drizzle(client, {
+    schema: { ...schema, ...relations }
+  })
 
-// Helper type for all tables
-export type Schema = typeof schema
+  // Log which connection is being used (for debugging)
+  if (isDevelopment) {
+    console.log(
+      '[DB] Using connection:',
+      process.env.DATABASE_RESTRICTED_URL
+        ? 'Restricted User (RLS Active)'
+        : 'Owner User (RLS Bypassed)'
+    )
+  }
 
-// Verify restricted user permissions on startup
-if (process.env.DATABASE_RESTRICTED_URL && !isTest) {
-  // Only run verification in server environments, not during build
-  if (typeof window === 'undefined' && process.env.NODE_ENV !== 'production') {
+  // Verify restricted user permissions on first connection (dev only, non-blocking)
+  if (
+    process.env.DATABASE_RESTRICTED_URL &&
+    !isTest &&
+    typeof window === 'undefined' &&
+    process.env.NODE_ENV !== 'production'
+  ) {
     ;(async () => {
       try {
-        const result = await db.execute<{ current_user: string }>(
+        const result = await instance.execute<{ current_user: string }>(
           sql`SELECT current_user`
         )
         const currentUser = result[0]?.current_user
@@ -97,4 +109,27 @@ if (process.env.DATABASE_RESTRICTED_URL && !isTest) {
       }
     })()
   }
+
+  return instance
 }
+
+let cachedDb: ReturnType<typeof createDbClient> | undefined
+
+/**
+ * Lazily creates (and memoizes) the Drizzle/Postgres client. Throws
+ * DatabaseNotConfiguredError if neither DATABASE_URL nor
+ * DATABASE_RESTRICTED_URL is set (outside test mode).
+ *
+ * Only call this inside request-time functions — never at module scope.
+ * Importing this module (or anything that imports it) must never require a
+ * database; only calling getDb() does.
+ */
+export function getDb(): ReturnType<typeof createDbClient> {
+  if (!cachedDb) {
+    cachedDb = createDbClient()
+  }
+  return cachedDb
+}
+
+// Helper type for all tables
+export type Schema = typeof schema

@@ -7,7 +7,7 @@ import { toPublicErrorPayload } from '@/lib/errors/public-error'
 import { Part, TodoItem } from '@/lib/types/ai'
 import { cn } from '@/lib/utils'
 
-import { useArtifact } from './artifact/artifact-context'
+import { useArtifact, useHasArtifactProvider } from './artifact/artifact-context'
 import { CollapsibleMessage } from './collapsible-message'
 import ProcessHeader from './process-header'
 import TodoListContent from './todo-list-content'
@@ -50,6 +50,7 @@ export function ToolTodoDisplay({
   isLast = false
 }: ToolTodoDisplayProps) {
   const { open: openArtifact } = useArtifact()
+  const hasArtifactProvider = useHasArtifactProvider()
   // Calculate counts for display
   const completedCount =
     output?.completedCount ??
@@ -81,7 +82,7 @@ export function ToolTodoDisplay({
 
   const header = (
     <ProcessHeader
-      onInspect={openInspector}
+      onInspect={hasArtifactProvider ? openInspector : undefined}
       isLoading={isLoading}
       label={
         <span className="inline-flex items-center gap-2 min-w-0 overflow-hidden">

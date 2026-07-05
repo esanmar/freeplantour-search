@@ -102,10 +102,24 @@ export function ArtifactProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// Inert fallback used when no ArtifactProvider is mounted (e.g. the
+// FreePlanTour embedded modal, which skips the full app shell). Keeps
+// consumers like search-section/answer-section safe to render standalone.
+const noopArtifactContext: ArtifactContextValue = {
+  state: initialState,
+  open: () => {},
+  close: () => {}
+}
+
 export function useArtifact() {
   const context = useContext(ArtifactContext)
-  if (context === undefined) {
-    throw new Error('useArtifact must be used within an ArtifactProvider')
-  }
-  return context
+  return context ?? noopArtifactContext
+}
+
+// Lets "inspect"-style UI (search/reasoning/todo section headers) decide
+// whether to render an interactive trigger at all — calling the no-op
+// `open()` above is safe but produces a dead click with no visible effect,
+// which is worse than not offering the affordance in the first place.
+export function useHasArtifactProvider(): boolean {
+  return useContext(ArtifactContext) !== undefined
 }

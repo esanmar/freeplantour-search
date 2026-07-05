@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getChatsPage } from '@/lib/actions/chat'
+import { isDatabaseConfigured } from '@/lib/db'
 import { Chat as DBChat } from '@/lib/db/schema'
 
 interface ChatPageResponse {
@@ -9,6 +10,13 @@ interface ChatPageResponse {
 }
 
 export async function GET(request: NextRequest) {
+  if (!isDatabaseConfigured()) {
+    return NextResponse.json(
+      { error: 'Database is not configured' },
+      { status: 503 }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const offset = parseInt(searchParams.get('offset') || '0', 10)
   const limit = parseInt(searchParams.get('limit') || '20', 10)

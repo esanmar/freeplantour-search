@@ -6,7 +6,10 @@ import type { ReasoningPart } from '@ai-sdk/provider-utils'
 
 import { cn } from '@/lib/utils'
 
-import { useArtifact } from '@/components/artifact/artifact-context'
+import {
+  useArtifact,
+  useHasArtifactProvider
+} from '@/components/artifact/artifact-context'
 
 import { CollapsibleMessage } from './collapsible-message'
 import { DefaultSkeleton } from './default-skeleton'
@@ -40,6 +43,7 @@ export function ReasoningSection({
   isLast = false
 }: ReasoningSectionProps) {
   const { open } = useArtifact()
+  const hasArtifactProvider = useHasArtifactProvider()
   // Show a short preview when collapsed; switch to a generic label when expanded
   const HEADER_PREVIEW_CHARS = 120
   const SANITIZE_MARKDOWN_PREVIEW = true
@@ -92,8 +96,14 @@ export function ReasoningSection({
           </span>
         </div>
       }
-      onInspect={() =>
-        open({ type: 'reasoning', text: content.reasoning } as ReasoningPart)
+      onInspect={
+        hasArtifactProvider
+          ? () =>
+              open({
+                type: 'reasoning',
+                text: content.reasoning
+              } as ReasoningPart)
+          : undefined
       }
       isLoading={!content.isDone}
       ariaExpanded={isOpen}

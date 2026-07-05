@@ -29,7 +29,13 @@ import { BaseStreamConfig } from './types'
 
 type EphemeralStreamConfig = Pick<
   BaseStreamConfig,
-  'model' | 'abortSignal' | 'searchMode' | 'relatedEnabled'
+  | 'model'
+  | 'abortSignal'
+  | 'searchMode'
+  | 'relatedEnabled'
+  | 'destination'
+  | 'locale'
+  | 'currentUrl'
 > & {
   messages: UIMessage[]
   chatId?: string
@@ -44,7 +50,10 @@ export async function createEphemeralChatStreamResponse(
     abortSignal,
     searchMode,
     chatId,
-    relatedEnabled = true
+    relatedEnabled = true,
+    destination,
+    locale,
+    currentUrl
   } = config
 
   if (!messages || messages.length === 0) {
@@ -97,12 +106,15 @@ export async function createEphemeralChatStreamResponse(
       modelMessages = truncateMessages(modelMessages, maxTokens, model.id)
     }
 
-    const researchAgent = researcher({
+    const researchAgent = await researcher({
       model: `${model.providerId}:${model.id}`,
       modelConfig: model,
       parentTraceId,
       searchMode,
-      relatedEnabled
+      relatedEnabled,
+      destination,
+      locale,
+      currentUrl
     })
 
     const modelId = `${model.providerId}:${model.id}`
