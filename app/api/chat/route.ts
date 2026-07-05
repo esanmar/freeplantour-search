@@ -13,7 +13,9 @@ import {
   trackChatEvent
 } from '@/lib/analytics'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
+import { NO_MODEL_AVAILABLE_MESSAGE } from '@/lib/constants'
 import { generateId } from '@/lib/db/schema'
+import { createPublicErrorResponse } from '@/lib/errors/public-error'
 import { checkAndEnforceAdaptiveLimit } from '@/lib/rate-limit/adaptive-limit'
 import { checkAndEnforceOverallChatLimit } from '@/lib/rate-limit/chat-limits'
 import { checkAndEnforceGuestLimit } from '@/lib/rate-limit/guest-limit'
@@ -146,9 +148,10 @@ export async function POST(req: Request) {
     const selectedModel = await selectModel({ searchMode, cookieStore })
 
     if (!selectedModel) {
-      return new Response('No enabled model is available', {
+      return createPublicErrorResponse(new Error(NO_MODEL_AVAILABLE_MESSAGE), {
         status: 503,
-        statusText: 'Service Unavailable'
+        statusText: 'Service Unavailable',
+        fallbackMessage: NO_MODEL_AVAILABLE_MESSAGE
       })
     }
 

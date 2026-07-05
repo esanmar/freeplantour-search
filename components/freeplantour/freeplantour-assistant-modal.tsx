@@ -34,13 +34,13 @@ const LABELS: Record<'en' | 'es', Labels> = {
     button: 'Ask about this destination',
     empty: 'Ask me what to see, where to go, or how to plan your visit.',
     closeLabel: 'Close assistant',
-    placeholder: 'Ask about this destination...'
+    placeholder: 'Ask what to see, where to eat, or how to plan your visit'
   },
   es: {
     button: 'Preguntar sobre este destino',
     empty: 'Pregúntame qué ver, dónde ir o cómo planear tu visita.',
     closeLabel: 'Cerrar asistente',
-    placeholder: 'Pregunta sobre este destino...'
+    placeholder: 'Pregunta qué ver, dónde comer o cómo organizar tu visita'
   }
 }
 

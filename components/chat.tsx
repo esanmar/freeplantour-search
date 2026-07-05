@@ -645,6 +645,8 @@ export function Chat({
           sections={sections}
           emptyStatePlaceholder={emptyStatePlaceholder}
           emptyStateHeading={emptyStateHeading}
+          destination={destination}
+          locale={locale}
         />
         <DragOverlay visible={dragHandlers.isDragging} />
         <ErrorModal
