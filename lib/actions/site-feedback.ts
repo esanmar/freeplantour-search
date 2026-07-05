@@ -1,6 +1,5 @@
 'use server'
 
-import { db } from '@/lib/db'
 import { feedback, generateId } from '@/lib/db/schema'
 import { withOptionalRLS } from '@/lib/db/with-rls'
 import { hasSupabasePublicConfig } from '@/lib/supabase/keys'

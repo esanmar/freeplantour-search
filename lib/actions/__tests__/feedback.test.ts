@@ -8,14 +8,24 @@ vi.mock('@/lib/utils/telemetry')
 // Import after mocking
 import { Langfuse } from 'langfuse'
 
-import { db } from '@/lib/db'
+import { getDb } from '@/lib/db'
 import { isTracingEnabled } from '@/lib/utils/telemetry'
 
 import { getMessageFeedback, updateMessageFeedback } from '../feedback'
 
+// getDb() is called inside withOptionalRLS/withRLS (lib/db/with-rls.ts),
+// which are NOT mocked here — only @/lib/db is, so the real withOptionalRLS
+// runs and calls the mocked getDb() to obtain its "tx". Returning the same
+// mutable object on every call lets each test just reassign its methods.
+const mockDb = {
+  select: vi.fn(),
+  update: vi.fn()
+}
+
 describe('Feedback Actions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getDb).mockReturnValue(mockDb as any)
   })
 
   describe('updateMessageFeedback', () => {
@@ -33,12 +43,12 @@ describe('Feedback Actions', () => {
       ])
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
-      vi.mocked(db).select = vi.fn().mockReturnValue({ from: mockFrom })
+      mockDb.select = vi.fn().mockReturnValue({ from: mockFrom })
 
       // Mock db.update
       const mockUpdateWhere = vi.fn().mockResolvedValue(undefined)
       const mockSet = vi.fn().mockReturnValue({ where: mockUpdateWhere })
-      vi.mocked(db).update = vi.fn().mockReturnValue({ set: mockSet })
+      mockDb.update = vi.fn().mockReturnValue({ set: mockSet })
 
       // Mock tracing disabled
       vi.mocked(isTracingEnabled).mockReturnValue(false)
@@ -46,8 +56,8 @@ describe('Feedback Actions', () => {
       const result = await updateMessageFeedback(messageId, score)
 
       expect(result).toEqual({ success: true })
-      expect(db.select).toHaveBeenCalled()
-      expect(db.update).toHaveBeenCalled()
+      expect(mockDb.select).toHaveBeenCalled()
+      expect(mockDb.update).toHaveBeenCalled()
     })
 
     it('should return error when message not found', async () => {
@@ -58,7 +68,7 @@ describe('Feedback Actions', () => {
       const mockLimit = vi.fn().mockResolvedValue([])
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
-      vi.mocked(db).select = vi.fn().mockReturnValue({ from: mockFrom })
+      mockDb.select = vi.fn().mockReturnValue({ from: mockFrom })
 
       const result = await updateMessageFeedback(messageId, score)
 
@@ -76,7 +86,7 @@ describe('Feedback Actions', () => {
       const mockLimit = vi.fn().mockRejectedValue(new Error('Database error'))
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
-      vi.mocked(db).select = vi.fn().mockReturnValue({ from: mockFrom })
+      mockDb.select = vi.fn().mockReturnValue({ from: mockFrom })
 
       const result = await updateMessageFeedback(messageId, score)
 
@@ -111,12 +121,12 @@ describe('Feedback Actions', () => {
       ])
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
-      vi.mocked(db).select = vi.fn().mockReturnValue({ from: mockFrom })
+      mockDb.select = vi.fn().mockReturnValue({ from: mockFrom })
 
       // Mock db.update
       const mockUpdateWhere = vi.fn().mockResolvedValue(undefined)
       const mockSet = vi.fn().mockReturnValue({ where: mockUpdateWhere })
-      vi.mocked(db).update = vi.fn().mockReturnValue({ set: mockSet })
+      mockDb.update = vi.fn().mockReturnValue({ set: mockSet })
 
       const result = await updateMessageFeedback(messageId, score)
 
@@ -145,7 +155,7 @@ describe('Feedback Actions', () => {
       ])
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
-      vi.mocked(db).select = vi.fn().mockReturnValue({ from: mockFrom })
+      mockDb.select = vi.fn().mockReturnValue({ from: mockFrom })
 
       const result = await getMessageFeedback(messageId)
 
@@ -159,7 +169,7 @@ describe('Feedback Actions', () => {
       const mockLimit = vi.fn().mockResolvedValue([])
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
-      vi.mocked(db).select = vi.fn().mockReturnValue({ from: mockFrom })
+      mockDb.select = vi.fn().mockReturnValue({ from: mockFrom })
 
       const result = await getMessageFeedback(messageId)
 
@@ -177,7 +187,7 @@ describe('Feedback Actions', () => {
       ])
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
-      vi.mocked(db).select = vi.fn().mockReturnValue({ from: mockFrom })
+      mockDb.select = vi.fn().mockReturnValue({ from: mockFrom })
 
       const result = await getMessageFeedback(messageId)
 
@@ -191,7 +201,7 @@ describe('Feedback Actions', () => {
       const mockLimit = vi.fn().mockRejectedValue(new Error('Database error'))
       const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit })
       const mockFrom = vi.fn().mockReturnValue({ where: mockWhere })
-      vi.mocked(db).select = vi.fn().mockReturnValue({ from: mockFrom })
+      mockDb.select = vi.fn().mockReturnValue({ from: mockFrom })
 
       const result = await getMessageFeedback(messageId)
 

@@ -30,7 +30,7 @@ import {
   parts
 } from './schema'
 import { withOptionalRLS, withRLS } from './with-rls'
-import { db } from '.'
+import { getDb } from '.'
 
 /**
  * Create a new chat
@@ -108,7 +108,8 @@ export async function upsertMessage(
   // Use RLS if userId is provided, otherwise use regular db
   const executeFn = userId
     ? (callback: (tx: any) => Promise<Message>) => withRLS(userId, callback)
-    : (callback: (tx: any) => Promise<Message>) => db.transaction(callback)
+    : (callback: (tx: any) => Promise<Message>) =>
+        getDb().transaction(callback)
 
   const result = await executeFn(async tx => {
     // 1. Insert or update the message

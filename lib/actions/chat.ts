@@ -4,6 +4,7 @@ import { revalidateTag, unstable_cache } from 'next/cache'
 
 import { generateChatTitle } from '@/lib/agents/title-generator'
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
+import { isDatabaseConfigured } from '@/lib/db'
 import * as dbActions from '@/lib/db/actions'
 import type { Chat, Message } from '@/lib/db/schema'
 import { generateId } from '@/lib/db/schema'
@@ -73,6 +74,25 @@ export async function loadChat(
     ...chat,
     messages: await signFilePartUrlsInMessages(chat.messages)
   }
+}
+
+/**
+ * Same as loadChat, but returns null instead of throwing
+ * DatabaseNotConfiguredError when no database is configured. For guest/modal
+ * code paths where a missing database is an expected, non-fatal condition
+ * (e.g. an optional "resume previous session" enrichment) rather than a
+ * hard requirement — NOT for routes/pages whose entire purpose is showing
+ * persisted chat data (those should use isDatabaseConfigured() directly and
+ * return a clear error instead of silently returning null).
+ */
+export async function loadChatIfDatabaseConfigured(
+  chatId: string,
+  requestingUserId?: string
+): Promise<(Chat & { messages: UIMessage[] }) | null> {
+  if (!isDatabaseConfigured()) {
+    return null
+  }
+  return loadChat(chatId, requestingUserId)
 }
 
 /**
