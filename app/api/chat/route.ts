@@ -1,6 +1,10 @@
 import { revalidateTag } from 'next/cache'
 import { cookies } from 'next/headers'
 
+// Only called for authenticated (non-guest) requests below — the guest/
+// FreePlanTour-modal path never touches the database. The import itself is
+// safe regardless of DATABASE_URL: lib/db/index.ts lazily creates its
+// connection on first getDb() call, not at module-evaluation time.
 import { loadChat } from '@/lib/actions/chat'
 import {
   calculateConversationTurn,
