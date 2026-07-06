@@ -83,7 +83,10 @@ const PROVIDER_AUTH_PATTERNS = [
   /\bcredential/i,
   /\binvalid key\b/i,
   /\bmissing key\b/i,
-  /\bincorrect api key\b/i
+  /\bincorrect api key\b/i,
+  /\buser keys?\b/i,
+  /\bpermissioned key\b/i,
+  /not_authorized_invalid_key_type/i
 ]
 
 const AUTH_REQUIRED_PATTERNS = [
@@ -283,13 +286,30 @@ function classifyError(snapshot: ErrorSnapshot, fallbackMessage?: string) {
     }
   }
 
-  if (status === 401 || matchesAny(combined, AUTH_REQUIRED_PATTERNS)) {
+  if (matchesAny(combined, AUTH_REQUIRED_PATTERNS)) {
     return {
       code: 'auth_required' as const,
       type: 'auth' as const,
       error: 'Please sign in to continue.',
       retryable: false,
       authRequired: true
+    }
+  }
+
+  // This app has no first-party user session on the chat path (guest chat is
+  // always on, and the only intentional "please sign in" payloads are the
+  // explicit JSON ones matched above by text). A bare 401 with no such
+  // wording is therefore never our own app asking the user to sign in — it's
+  // an upstream AI/search provider rejecting our server-side credentials
+  // (revoked/invalid/wrongly-scoped key). Surface it as a provider
+  // configuration problem, never as a fake login wall shown to a guest.
+  if (status === 401) {
+    return {
+      code: 'provider_auth' as const,
+      type: 'general' as const,
+      error:
+        'The AI service is not configured correctly. Please try again later.',
+      retryable: false
     }
   }
 
