@@ -189,6 +189,38 @@ describe('public error mapping', () => {
     expect(JSON.stringify(payload).toLowerCase()).not.toContain('password')
   })
 
+  it('never shows a fake sign-in wall for a bare 401 from an AI provider', () => {
+    // Mirrors an AI_APICallError from the Vercel AI SDK when OpenAI rejects
+    // the server's own API key (e.g. wrong key type/project scope) — a
+    // provider configuration problem, not something any guest can "sign in"
+    // to fix. This app has no first-party session on the chat path, so a
+    // bare 401 must never be classified as our own auth wall.
+    const error = new Error(
+      'The project you are requesting does not allow user keys, please try again with a permissioned key.'
+    ) as Error & { statusCode: number }
+    error.statusCode = 401
+
+    const payload = toPublicErrorPayload(error)
+
+    expect(payload.type).not.toBe('auth')
+    expect(payload.authRequired).toBeFalsy()
+    expect(payload.code).toBe('provider_auth')
+    expect(payload.error).toBe(
+      'The AI service is not configured correctly. Please try again later.'
+    )
+  })
+
+  it('classifies an unrecognized bare 401 as a provider problem, not user auth', () => {
+    const error = new Error('Unauthorized') as Error & { statusCode: number }
+    error.statusCode = 401
+
+    const payload = toPublicErrorPayload(error)
+
+    expect(payload.type).toBe('general')
+    expect(payload.code).toBe('provider_auth')
+    expect(payload.authRequired).toBeFalsy()
+  })
+
   it('handles circular thrown objects without crashing', () => {
     const circular: Record<string, unknown> = {
       reason: 'database password leak'
