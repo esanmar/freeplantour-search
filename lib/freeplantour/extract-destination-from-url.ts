@@ -106,3 +106,26 @@ export function extractDestinationFromUrl(pathname: string): string | null {
   const tripDestinationSlug = extractTripDestinationSlug(slug)
   return humanizeSlug(tripDestinationSlug ?? slug)
 }
+
+/**
+ * Extracts the itinerary id from a FreePlanTour URL pathname, e.g.
+ * "/es/1780650079749/viaje-de-3-dias-a-miranda-de-ebro" -> "1780650079749".
+ * Mirrors the locale-skip logic in extractDestinationFromUrl so the two stay
+ * in sync. Returns null when there's no numeric segment right after the
+ * (optional) locale segment.
+ */
+export function extractItineraryIdFromUrl(pathname: string): string | null {
+  if (!pathname) return null
+
+  const cleanPath = pathname.split('?')[0]?.split('#')[0] ?? ''
+  const segments = cleanPath.split('/').filter(Boolean)
+  if (segments.length === 0) return null
+
+  let index = 0
+  if (isSupportedLocale(segments[0])) {
+    index += 1
+  }
+
+  const candidate = segments[index]
+  return candidate && /^\d+$/.test(candidate) ? candidate : null
+}

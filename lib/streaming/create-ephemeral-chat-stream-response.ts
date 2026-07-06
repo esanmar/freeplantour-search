@@ -36,6 +36,7 @@ type EphemeralStreamConfig = Pick<
   | 'destination'
   | 'locale'
   | 'currentUrl'
+  | 'itineraryId'
 > & {
   messages: UIMessage[]
   chatId?: string
@@ -53,7 +54,8 @@ export async function createEphemeralChatStreamResponse(
     relatedEnabled = true,
     destination,
     locale,
-    currentUrl
+    currentUrl,
+    itineraryId
   } = config
 
   if (!messages || messages.length === 0) {
@@ -114,7 +116,8 @@ export async function createEphemeralChatStreamResponse(
       relatedEnabled,
       destination,
       locale,
-      currentUrl
+      currentUrl,
+      itineraryId
     })
 
     const modelId = `${model.providerId}:${model.id}`

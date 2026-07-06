@@ -21,10 +21,6 @@ import {
 } from '@/lib/errors/public-error'
 import { SHORTCUT_EVENTS } from '@/lib/keyboard-shortcuts'
 import { stripSpecBlocks } from '@/lib/render/strip-spec-blocks'
-import {
-  ADAPTIVE_MODE_AUTH_REQUIRED_MESSAGE,
-  isAdaptiveModeAuthBlocked
-} from '@/lib/search-mode-availability'
 import { NoteContext, UploadedFile } from '@/lib/types'
 import type { UIMessage } from '@/lib/types/ai'
 import {
@@ -34,7 +30,6 @@ import {
 } from '@/lib/types/dynamic-tools'
 import type { ModelSelectorData } from '@/lib/types/model-selector'
 import { cn } from '@/lib/utils'
-import { getCookie } from '@/lib/utils/cookies'
 import { getTextFromParts } from '@/lib/utils/message-utils'
 
 import { useFileDropzone } from '@/hooks/use-file-dropzone'
@@ -62,6 +57,7 @@ export function Chat({
   destination,
   locale,
   currentUrl,
+  itineraryId,
   emptyStatePlaceholder,
   emptyStateHeading
 }: {
@@ -76,6 +72,7 @@ export function Chat({
   destination?: string
   locale?: string
   currentUrl?: string
+  itineraryId?: string
   /** Placeholder shown before the first message is sent */
   emptyStatePlaceholder?: string
   /** Heading shown above the input before the first message is sent */
@@ -128,23 +125,6 @@ export function Chat({
   // its `handlers` prop via useState(initialHandlers)) can still see
   // the freshest value through `.current`. See lib/contexts/chat-context.tsx.
   const isStreamingRef = useRef(false)
-  const showAdaptiveModeAuthModal = useCallback(() => {
-    setErrorModal({
-      open: true,
-      type: 'auth',
-      message: ADAPTIVE_MODE_AUTH_REQUIRED_MESSAGE
-    })
-  }, [setErrorModal])
-
-  const isCurrentAdaptiveModeAuthBlocked = useCallback(
-    () =>
-      isAdaptiveModeAuthBlocked({
-        mode: getCookie('searchMode') === 'adaptive' ? 'adaptive' : 'quick',
-        isGuest,
-        isCloudDeployment
-      }),
-    [isGuest, isCloudDeployment]
-  )
 
   const {
     messages,
@@ -182,6 +162,7 @@ export function Chat({
             ...(destination ? { destination } : {}),
             ...(locale ? { locale } : {}),
             ...(currentUrl ? { currentUrl } : {}),
+            ...(itineraryId ? { itineraryId } : {}),
             message:
               trigger === 'regenerate-message' &&
               messageToRegenerate?.role === 'user'
@@ -242,11 +223,6 @@ export function Chat({
   // action handlers can reliably reject overlapping sends.
   const safeSendMessage = useCallback<typeof sendMessage>(
     (...args) => {
-      if (isCurrentAdaptiveModeAuthBlocked()) {
-        showAdaptiveModeAuthModal()
-        return Promise.resolve()
-      }
-
       isStreamingRef.current = true
       try {
         return sendMessage(...args)
@@ -255,16 +231,11 @@ export function Chat({
         throw error
       }
     },
-    [sendMessage, isCurrentAdaptiveModeAuthBlocked, showAdaptiveModeAuthModal]
+    [sendMessage]
   )
 
   const safeRegenerate = useCallback(
     async (...args: Parameters<typeof regenerate>) => {
-      if (isCurrentAdaptiveModeAuthBlocked()) {
-        showAdaptiveModeAuthModal()
-        return
-      }
-
       isStreamingRef.current = true
       try {
         return await regenerate(...args)
@@ -273,7 +244,7 @@ export function Chat({
         throw error
       }
     },
-    [regenerate, isCurrentAdaptiveModeAuthBlocked, showAdaptiveModeAuthModal]
+    [regenerate]
   )
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -640,7 +611,6 @@ export function Chat({
           onNewChat={handleNewChat}
           isGuest={isGuest}
           isCloudDeployment={isCloudDeployment}
-          onAdaptiveModeAuthRequired={showAdaptiveModeAuthModal}
           modelSelectorData={modelSelectorData}
           sections={sections}
           emptyStatePlaceholder={emptyStatePlaceholder}

@@ -5,8 +5,10 @@ import { useEffect, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { IconMessage, IconX } from '@tabler/icons-react'
 
-import { extractDestinationFromUrl } from '@/lib/freeplantour/extract-destination-from-url'
-import { extractLocaleFromUrl } from '@/lib/freeplantour/language'
+import { getFreePlanTourLabels } from '@/lib/freeplantour/labels'
+import { parseFreePlanTourQueryParams } from '@/lib/freeplantour/parse-query-params'
+import { pickSupportedLocale } from '@/lib/freeplantour/pick-supported-locale'
+import { resolveFreePlanTourContext } from '@/lib/freeplantour/resolve-context'
 import { cn } from '@/lib/utils'
 
 import { Chat } from '@/components/chat'
@@ -15,38 +17,9 @@ export type FreePlanTourAssistantModalProps = {
   destination?: string
   locale?: string
   currentUrl?: string
+  itineraryId?: string
   initialOpen?: boolean
   className?: string
-}
-
-type Labels = {
-  button: string
-  empty: string
-  closeLabel: string
-  placeholder: string
-}
-
-// Only English/Spanish fallbacks are hardcoded here per the modal spec.
-// Full multilingual response handling (matching the user's message language)
-// is implemented at the prompt level, not in this static UI copy.
-const LABELS: Record<'en' | 'es', Labels> = {
-  en: {
-    button: 'Ask about this destination',
-    empty: 'Ask me what to see, where to go, or how to plan your visit.',
-    closeLabel: 'Close assistant',
-    placeholder: 'Ask what to see, where to eat, or how to plan your visit'
-  },
-  es: {
-    button: 'Preguntar sobre este destino',
-    empty: 'Pregúntame qué ver, dónde ir o cómo planear tu visita.',
-    closeLabel: 'Cerrar asistente',
-    placeholder: 'Pregunta qué ver, dónde comer o cómo organizar tu visita'
-  }
-}
-
-function getLabels(locale?: string): Labels {
-  const lang = locale?.slice(0, 2).toLowerCase()
-  return lang === 'es' ? LABELS.es : LABELS.en
 }
 
 // The modal deliberately does not mount SidebarProvider/LibraryProvider/
@@ -59,6 +32,7 @@ export function FreePlanTourAssistantModal({
   destination: destinationProp,
   locale: localeProp,
   currentUrl: currentUrlProp,
+  itineraryId: itineraryIdProp,
   initialOpen = false,
   className
 }: FreePlanTourAssistantModalProps) {
@@ -66,37 +40,43 @@ export function FreePlanTourAssistantModal({
 
   // Explicit props always win (a host page may already know the destination
   // from its own data). Otherwise the modal computes it from the current
-  // URL itself, so it works when simply dropped onto a page with no props.
-  // Recomputed on every open/close toggle (not just on mount) as a
-  // pragmatic way to pick up client-side navigation between destination
-  // pages without wiring up a full router/history listener.
+  // page: first from its own query string (?destination=&language=&
+  // itineraryId=&sourceUrl=), then by parsing the URL itself, then — for
+  // locale only — the browser's own language. Recomputed on every open/close
+  // toggle (not just on mount) as a pragmatic way to pick up client-side
+  // navigation between destination pages without wiring up a full
+  // router/history listener.
   const [computed, setComputed] = useState<{
     destination?: string
     locale?: string
     currentUrl?: string
+    itineraryId?: string
   }>({})
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const resolved = resolveFreePlanTourContext({
+      explicit: parseFreePlanTourQueryParams(window.location.search),
+      fallbackUrl: window.location.href
+    })
+    const locale =
+      resolved.locale ??
+      pickSupportedLocale(navigator.language, ...(navigator.languages ?? []))
     // Deliberately deferred to an effect rather than computed during render:
     // computing this from window.location on the first render would mismatch
     // the server-rendered (window-less) markup and trigger a hydration
     // warning. This runs once after mount, then again on each open/close
     // toggle, updating state exactly once per trigger — not a render loop.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setComputed({
-      destination:
-        extractDestinationFromUrl(window.location.pathname) ?? undefined,
-      locale: extractLocaleFromUrl(window.location.pathname) ?? undefined,
-      currentUrl: window.location.href
-    })
+    setComputed({ ...resolved, locale })
   }, [open])
 
   const destination = destinationProp ?? computed.destination
   const locale = localeProp ?? computed.locale
   const currentUrl = currentUrlProp ?? computed.currentUrl
+  const itineraryId = itineraryIdProp ?? computed.itineraryId
 
-  const labels = getLabels(locale)
+  const labels = getFreePlanTourLabels(locale, Boolean(destination))
   const triggerLabel = destination
     ? `${labels.button} — ${destination}`
     : labels.button
@@ -169,6 +149,7 @@ export function FreePlanTourAssistantModal({
               destination={destination}
               locale={locale}
               currentUrl={currentUrl}
+              itineraryId={itineraryId}
               emptyStatePlaceholder={labels.placeholder}
               emptyStateHeading={labels.empty}
             />

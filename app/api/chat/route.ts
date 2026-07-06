@@ -19,10 +19,6 @@ import { createPublicErrorResponse } from '@/lib/errors/public-error'
 import { checkAndEnforceAdaptiveLimit } from '@/lib/rate-limit/adaptive-limit'
 import { checkAndEnforceOverallChatLimit } from '@/lib/rate-limit/chat-limits'
 import { checkAndEnforceGuestLimit } from '@/lib/rate-limit/guest-limit'
-import {
-  ADAPTIVE_MODE_AUTH_REQUIRED_MESSAGE,
-  isAdaptiveModeAuthBlocked
-} from '@/lib/search-mode-availability'
 import { createChatStreamResponse } from '@/lib/streaming/create-chat-stream-response'
 import { createEphemeralChatStreamResponse } from '@/lib/streaming/create-ephemeral-chat-stream-response'
 import { SearchMode } from '@/lib/types/search'
@@ -53,6 +49,8 @@ export async function POST(req: Request) {
       typeof body.locale === 'string' ? body.locale : undefined
     const currentUrl: string | undefined =
       typeof body.currentUrl === 'string' ? body.currentUrl : undefined
+    const itineraryId: string | undefined =
+      typeof body.itineraryId === 'string' ? body.itineraryId : undefined
 
     // Normalize the message id up front so persistence and analytics agree on it.
     if (message && !message.id) {
@@ -94,14 +92,9 @@ export async function POST(req: Request) {
       })
     }
 
-    const guestChatEnabled = process.env.ENABLE_GUEST_CHAT === 'true'
+    // This deployment is anonymous-only: every visitor is a "guest" and is
+    // always allowed to chat — there is no sign-in flow to fall back to.
     const isGuest = !userId
-    if (isGuest && !guestChatEnabled) {
-      return new Response('Authentication required', {
-        status: 401,
-        statusText: 'Unauthorized'
-      })
-    }
 
     if (isGuest) {
       const forwardedFor = req.headers.get('x-forwarded-for') || ''
@@ -121,29 +114,6 @@ export async function POST(req: Request) {
       searchModeCookie && ['quick', 'adaptive'].includes(searchModeCookie)
         ? (searchModeCookie as SearchMode)
         : 'quick'
-
-    // Adaptive mode is gated to authenticated users on cloud deployments.
-    // Check before model/provider selection so guests always get the
-    // intentional auth payload instead of lower-level configuration errors.
-    if (
-      isAdaptiveModeAuthBlocked({
-        mode: searchMode,
-        isGuest,
-        isCloudDeployment: process.env.MORPHIC_CLOUD_DEPLOYMENT === 'true'
-      })
-    ) {
-      return new Response(
-        JSON.stringify({
-          error: ADAPTIVE_MODE_AUTH_REQUIRED_MESSAGE,
-          mode: 'adaptive',
-          authRequired: true
-        }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
 
     const selectedModel = await selectModel({ searchMode, cookieStore })
 
@@ -210,7 +180,8 @@ export async function POST(req: Request) {
           relatedEnabled,
           destination,
           locale,
-          currentUrl
+          currentUrl,
+          itineraryId
         })
       : await createChatStreamResponse({
           message,
@@ -225,7 +196,8 @@ export async function POST(req: Request) {
           relatedEnabled,
           destination,
           locale,
-          currentUrl
+          currentUrl,
+          itineraryId
         })
 
     perfTime('createChatStreamResponse resolved', streamStart)

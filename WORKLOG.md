@@ -807,3 +807,106 @@ at all for the FreePlanTour guest/modal use case.
     empirical confirmation — recommend a live spot-check with a real
     database connected before fully trusting the authenticated path.
 
+## Addendum 3 — Remove remaining auth gates; explicit query-param context; itineraryId
+
+Follow-up session closing three gaps found on top of the existing FreePlanTour
+adaptation: a couple of auth-flavored surfaces could still reach a guest, the
+"preferred" explicit-query-param context method from CLAUDE.md's spec wasn't
+implemented (only URL-path parsing was), and `itineraryId`/`sourceUrl` weren't
+threaded through at all.
+
+- **Removed the two remaining auth-flavored surfaces on the guest chat path:**
+  - `app/api/chat/route.ts` no longer gates guest requests behind
+    `ENABLE_GUEST_CHAT` — guest chat is unconditional now, so a missing/typo'd
+    env var can never produce a 401 for a first-time visitor.
+  - Deleted `lib/search-mode-availability.ts` (+ its test) and every call site
+    (`chat.tsx`, `chat-panel.tsx`, `search-mode-selector.tsx`,
+    `app/api/chat/route.ts`) — Adaptive mode no longer requires sign-in for
+    cloud-deployment guests; both search modes are available to everyone.
+  - `lib/rate-limit/guest-limit.ts`: the daily-limit response no longer says
+    "Please sign in to continue." / `authRequired: true` (there is nothing to
+    sign in to) — reclassified as a plain `429` rate-limit payload
+    (`code: 'rate_limit'`, `type: 'rate-limit'`), so `ErrorModal` shows the
+    existing "Rate Limit Exceeded" dialog instead of a Sign Up/Sign In dialog.
+  - Deleted `components/auth-modal.tsx` and `hooks/use-auth-check.tsx` — both
+    confirmed unused (dead code) by grep before removal.
+  - Deliberately **not** removed: `/auth/*` pages, `error-modal.tsx`'s `auth`
+    error type, and `ENABLE_AUTH`/Supabase plumbing. These remain available,
+    inert, and unreachable from the anonymous chat path — kept per "isolate
+    auth so anonymous chat works without breaking the architecture" rather
+    than deleting a legitimate optional multi-user feature. The one surviving
+    link is `components/guest-menu.tsx`'s "Sign In" item (a settings-menu
+    entry on the standalone homepage's header, outside `<Chat>`'s render tree
+    and never shown in the embedded widget) — flagged to the user as a
+    judgment call, not removed.
+  - Updated `.env.local.example`, `docs/freeplantour-assistant.md`, and
+    `docs/CONFIGURATION.md` to stop documenting the now-removed
+    `ENABLE_GUEST_CHAT` gate.
+- **Implemented the "preferred" explicit query-param context method** (was
+  previously only URL-path parsing):
+  - New `lib/freeplantour/parse-query-params.ts` —
+    `parseFreePlanTourQueryParams()` reads `destination`, `language`,
+    `itineraryId`, `sourceUrl` from a query string, a `URLSearchParams`, or
+    Next.js's parsed `searchParams` page-prop shape.
+  - New `lib/freeplantour/resolve-context.ts` —
+    `resolveFreePlanTourContext({ explicit, fallbackUrl })` combines explicit
+    params with URL-path fallback parsing (explicit always wins per field),
+    generic — no FreePlanTour-domain hardcoding.
+  - `lib/freeplantour/extract-destination-from-url.ts` gained
+    `extractItineraryIdFromUrl()`, mirroring the existing locale-skip logic so
+    the numeric itinerary-id segment (previously detected internally but
+    discarded) is now actually exposed.
+  - `app/page.tsx` (previously passed **no** FreePlanTour context props at
+    all) now reads explicit query params server-side, falls back to the
+    `Referer` header (for a plain link with no params) and the
+    `Accept-Language` header (for locale, when nothing else resolves) via new
+    `lib/freeplantour/pick-supported-locale.ts`, and passes the resolved
+    context into `<Chat>` exactly like the embedded modal already did.
+  - `components/freeplantour/freeplantour-assistant-modal.tsx` now also reads
+    its own `window.location.search` for explicit params (previously
+    URL-path-only) and falls back to `navigator.language` for locale as a
+    final step.
+  - Extracted the modal's inline `LABELS`/`getLabels` into shared
+    `lib/freeplantour/labels.ts` (`getFreePlanTourLabels(locale,
+    hasDestination)`) so `app/page.tsx` and the modal show identical copy —
+    and added a distinct copy variant for when no destination was detected at
+    all ("Which destination are you visiting?" / Spanish equivalent),
+    satisfying CLAUDE.md's "gracefully ask the user which destination" case
+    at the UI layer, not just the system-prompt layer.
+- **Threaded `itineraryId` end-to-end**, mirroring the existing
+  destination/locale/currentUrl plumbing: `lib/freeplantour/types.ts`,
+  `components/chat.tsx` (prop + request body), `app/api/chat/route.ts`,
+  `lib/streaming/types.ts` + both stream-response builders,
+  `lib/agents/researcher.ts`, `lib/freeplantour/context.ts` (accepted, stubbed
+  for future Firestore lookups), and `lib/freeplantour/travel-system-prompt.ts`
+  (new optional "Current itinerary ID: ..." line).
+- **Made `destination` genuinely optional in `buildTravelSystemPrompt`**
+  instead of researcher.ts substituting the placeholder string `"this
+  destination"`: when no destination is known, the prompt now has a distinct
+  branch instructing the model to ask the user which destination they need
+  help with (in their language) rather than proceeding with a fake city name
+  in the prompt text — closes the gap on CLAUDE.md's "if no context can be
+  detected, gracefully ask" requirement, which the placeholder-string
+  approach only satisfied by accident (relying on the model recognizing "this
+  destination" wasn't real).
+- **Tests added**: `lib/freeplantour/{parse-query-params,resolve-context,
+  pick-supported-locale}.test.ts` (new), extended
+  `extract-destination-from-url.test.ts` and `travel-system-prompt.test.ts`
+  for the new functions/branches, and updated
+  `components/__tests__/{chat-panel,search-mode-selector}.test.tsx` +
+  `lib/rate-limit/__tests__/guest-limit.test.ts` to match the removed
+  adaptive-mode gate and the reclassified rate-limit payload.
+- **Verification status**: `tsc --noEmit` passes cleanly for every file this
+  session touched (same two pre-existing, unrelated `@supabase/ssr` typing
+  errors as every prior loop — see Loop 14). `vitest run` could not be
+  executed in this environment for the same reason documented in Loop 14/15
+  (Node 18.20.4 present; `vitest`'s `rolldown` dependency requires Node ≥20
+  for `node:util`'s `styleText` export) — every new/changed test in this
+  addendum was manually traced line-by-line against its implementation
+  instead (see reasoning above), but this is not a substitute for actually
+  running them. Must be run for real in a Node ≥20 (or bun) environment
+  before this addendum is considered fully validated. `next dev`/`next build`
+  were not run for the same Node-version reason; the anonymous-chat and
+  context-injection flows were verified by code trace, not a live browser
+  session.
+

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 
 import {
   IconCheck as Check,
@@ -25,22 +25,12 @@ import {
 } from './ui/dropdown-menu'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card'
 
-const VALID_SEARCH_MODES = new Set(['quick', 'adaptive'])
-
 function getSearchModeSnapshot(): SearchMode {
   const savedMode = getCookie('searchMode')
   return savedMode === 'adaptive' ? 'adaptive' : 'quick'
 }
 
-interface SearchModeSelectorProps {
-  isAdaptiveAuthRequired?: boolean
-  onAdaptiveAuthRequired?: () => void
-}
-
-export function SearchModeSelector({
-  isAdaptiveAuthRequired = false,
-  onAdaptiveAuthRequired
-}: SearchModeSelectorProps) {
+export function SearchModeSelector() {
   const value = useSyncExternalStore(
     subscribeToCookieChange,
     getSearchModeSnapshot,
@@ -49,19 +39,6 @@ export function SearchModeSelector({
   const [openHoverCard, setOpenHoverCard] = useState<string | null>(null)
   const [justSelected, setJustSelected] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
-
-  useEffect(() => {
-    const savedMode = getCookie('searchMode')
-    if (savedMode && !VALID_SEARCH_MODES.has(savedMode)) {
-      // Clean up invalid cookie value (e.g., old 'planning' mode)
-      setCookie('searchMode', 'quick')
-      return
-    }
-
-    if (isAdaptiveAuthRequired && savedMode === 'adaptive') {
-      setCookie('searchMode', 'quick')
-    }
-  }, [isAdaptiveAuthRequired])
 
   const closeModeSelectControls = () => {
     setOpenHoverCard(null) // Close hover card on selection
@@ -75,13 +52,6 @@ export function SearchModeSelector({
   }
 
   const handleModeSelect = (mode: SearchMode) => {
-    if (mode === 'adaptive' && isAdaptiveAuthRequired) {
-      setCookie('searchMode', 'quick')
-      closeModeSelectControls()
-      onAdaptiveAuthRequired?.()
-      return
-    }
-
     setCookie('searchMode', mode)
     closeModeSelectControls()
   }

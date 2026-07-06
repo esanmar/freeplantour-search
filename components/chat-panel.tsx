@@ -1,12 +1,6 @@
 'use client'
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore
-} from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
 import { useRouter } from 'next/navigation'
 
@@ -28,20 +22,10 @@ import { toast } from 'sonner'
 import { captureClient } from '@/lib/analytics/posthog-client'
 import { NO_MODEL_AVAILABLE_MESSAGE } from '@/lib/constants'
 import { SHORTCUT_EVENTS } from '@/lib/keyboard-shortcuts'
-import {
-  isAdaptiveModeAuthBlocked,
-  requiresAdaptiveModeAuth
-} from '@/lib/search-mode-availability'
 import { NoteContext, UploadedFile } from '@/lib/types'
 import type { UIDataTypes, UIMessage, UITools } from '@/lib/types/ai'
 import type { ModelSelectorData } from '@/lib/types/model-selector'
-import type { SearchMode } from '@/lib/types/search'
 import { cn } from '@/lib/utils'
-import {
-  getCookie,
-  setCookie,
-  subscribeToCookieChange
-} from '@/lib/utils/cookies'
 import { stripMarkdownText } from '@/lib/utils/markdown'
 
 import { useArtifact } from './artifact/artifact-context'
@@ -73,10 +57,6 @@ const PASTE_CARD_MIN_CHARS = 400
 const BARE_URL_RE = /^https?:\/\/\S+$/
 const ALLOWED_FILE_TYPES = ['image/png', 'image/jpeg', 'application/pdf']
 
-function getSearchModeSnapshot(): SearchMode {
-  return getCookie('searchMode') === 'adaptive' ? 'adaptive' : 'quick'
-}
-
 interface ChatPanelProps {
   chatId: string
   input: string
@@ -104,7 +84,6 @@ interface ChatPanelProps {
   isGuest?: boolean
   /** Whether the deployment is cloud mode */
   isCloudDeployment?: boolean
-  onAdaptiveModeAuthRequired?: () => void
   modelSelectorData?: ModelSelectorData
   /** Chat sections for message navigation dots */
   sections?: { id: string; userMessage: UIMessage }[]
@@ -139,7 +118,6 @@ export function ChatPanel({
   onNewChat,
   isGuest = false,
   isCloudDeployment = false,
-  onAdaptiveModeAuthRequired,
   modelSelectorData,
   sections = [],
   emptyStatePlaceholder = 'Ask what to see, where to eat, or how to plan your visit',
@@ -176,21 +154,6 @@ export function ChatPanel({
     uploadedFiles.some(file => file.status === 'uploaded')
   const hasAvailableModels =
     isCloudDeployment || modelSelectorData?.hasAvailableModels !== false
-  const searchMode = useSyncExternalStore(
-    subscribeToCookieChange,
-    getSearchModeSnapshot,
-    () => 'quick' as SearchMode
-  )
-  const isAdaptiveAuthRequired = requiresAdaptiveModeAuth({
-    isGuest,
-    isCloudDeployment
-  })
-  const adaptiveModeSubmitBlocked = isAdaptiveModeAuthBlocked({
-    mode: searchMode,
-    isGuest,
-    isCloudDeployment
-  })
-
   const handleCompositionStart = () => setIsComposing(true)
 
   const handleCompositionEnd = () => {
@@ -266,18 +229,13 @@ export function ChatPanel({
   // if query is not empty, submit the query
   useEffect(() => {
     if (isFirstRender.current && query && query.trim().length > 0) {
-      if (adaptiveModeSubmitBlocked) {
-        setCookie('searchMode', 'quick')
-        return
-      }
-
       append({
         role: 'user',
         parts: [{ type: 'text', text: query }]
       })
       isFirstRender.current = false
     }
-  }, [adaptiveModeSubmitBlocked, append, query])
+  }, [append, query])
 
   const handleFileRemove = useCallback(
     (index: number) => {
@@ -473,10 +431,6 @@ export function ChatPanel({
             uploadedFiles.some(file => file.status === 'uploaded')
           ) {
             e.preventDefault()
-            if (adaptiveModeSubmitBlocked) {
-              onAdaptiveModeAuthRequired?.()
-              return
-            }
             if (!hasAvailableModels) {
               toast.error(NO_MODEL_AVAILABLE_MESSAGE)
               return
@@ -548,12 +502,6 @@ export function ChatPanel({
             inputRef.current?.blur()
             return
           }
-          if (adaptiveModeSubmitBlocked) {
-            e.preventDefault()
-            onAdaptiveModeAuthRequired?.()
-            return
-          }
-
           if (!hasAvailableModels) {
             e.preventDefault()
             toast.error(NO_MODEL_AVAILABLE_MESSAGE)
@@ -908,10 +856,7 @@ export function ChatPanel({
                   )}
                 </div>
               )}
-              <SearchModeSelector
-                isAdaptiveAuthRequired={isAdaptiveAuthRequired}
-                onAdaptiveAuthRequired={onAdaptiveModeAuthRequired}
-              />
+              <SearchModeSelector />
             </div>
             <div className="flex items-center gap-2">
               {!isCloudDeployment && modelSelectorData && (
@@ -941,9 +886,7 @@ export function ChatPanel({
                 }
                 onClick={isLoading ? stop : undefined}
                 title={
-                  hasAvailableModels
-                    ? undefined
-                    : NO_MODEL_AVAILABLE_MESSAGE
+                  hasAvailableModels ? undefined : NO_MODEL_AVAILABLE_MESSAGE
                 }
               >
                 {isLoading ? (

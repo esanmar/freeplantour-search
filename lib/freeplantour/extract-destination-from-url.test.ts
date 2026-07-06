@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { extractDestinationFromUrl } from './extract-destination-from-url'
+import {
+  extractDestinationFromUrl,
+  extractItineraryIdFromUrl
+} from './extract-destination-from-url'
 
 describe('extractDestinationFromUrl', () => {
   it('extracts a simple destination with a Spanish locale prefix', () => {
@@ -78,15 +81,15 @@ describe('extractDestinationFromUrl', () => {
   })
 
   it('handles a Spanish 1-day (singular) itinerary slug', () => {
-    expect(
-      extractDestinationFromUrl('/es/123/viaje-de-1-dia-a-bilbao')
-    ).toBe('Bilbao')
+    expect(extractDestinationFromUrl('/es/123/viaje-de-1-dia-a-bilbao')).toBe(
+      'Bilbao'
+    )
   })
 
   it('handles a Spanish 2-day itinerary slug', () => {
-    expect(
-      extractDestinationFromUrl('/es/456/viaje-de-2-dias-a-bilbao')
-    ).toBe('Bilbao')
+    expect(extractDestinationFromUrl('/es/456/viaje-de-2-dias-a-bilbao')).toBe(
+      'Bilbao'
+    )
   })
 
   it('handles an English 1-day-trip itinerary slug', () => {
@@ -96,9 +99,7 @@ describe('extractDestinationFromUrl', () => {
   })
 
   it('title-cases a two-word destination with no connector words', () => {
-    expect(extractDestinationFromUrl('/en/san-sebastian')).toBe(
-      'San Sebastian'
-    )
+    expect(extractDestinationFromUrl('/en/san-sebastian')).toBe('San Sebastian')
   })
 
   it('capitalizes a leading minor word ("la")', () => {
@@ -106,9 +107,9 @@ describe('extractDestinationFromUrl', () => {
   })
 
   it('lowercases a mid-slug minor word ("de")', () => {
-    expect(extractDestinationFromUrl('/en/1780650079749/3-day-trip-to-la-rioja')).toBe(
-      'La Rioja'
-    )
+    expect(
+      extractDestinationFromUrl('/en/1780650079749/3-day-trip-to-la-rioja')
+    ).toBe('La Rioja')
   })
 
   it('supports the Basque (eu) locale prefix', () => {
@@ -158,9 +159,7 @@ describe('extractDestinationFromUrl', () => {
   })
 
   it('strips a query string', () => {
-    expect(extractDestinationFromUrl('/es/bilbao?ref=homepage')).toBe(
-      'Bilbao'
-    )
+    expect(extractDestinationFromUrl('/es/bilbao?ref=homepage')).toBe('Bilbao')
   })
 
   it('strips a hash fragment', () => {
@@ -186,5 +185,33 @@ describe('extractDestinationFromUrl', () => {
 
   it('returns null when a numeric id is present but no destination slug follows', () => {
     expect(extractDestinationFromUrl('/es/1776191501388')).toBeNull()
+  })
+})
+
+describe('extractItineraryIdFromUrl', () => {
+  it('extracts the itinerary id after a locale segment', () => {
+    expect(
+      extractItineraryIdFromUrl(
+        '/es/1780650079749/viaje-de-3-dias-a-miranda-de-ebro'
+      )
+    ).toBe('1780650079749')
+  })
+
+  it('extracts the itinerary id with no locale prefix', () => {
+    expect(extractItineraryIdFromUrl('/1780650079749/bilbao')).toBe(
+      '1780650079749'
+    )
+  })
+
+  it('returns null when there is no numeric segment', () => {
+    expect(extractItineraryIdFromUrl('/es/miranda-de-ebro')).toBeNull()
+  })
+
+  it('returns null for the root path', () => {
+    expect(extractItineraryIdFromUrl('/')).toBeNull()
+  })
+
+  it('returns null for an empty string', () => {
+    expect(extractItineraryIdFromUrl('')).toBeNull()
   })
 })
