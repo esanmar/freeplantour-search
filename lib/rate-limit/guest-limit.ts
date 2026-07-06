@@ -85,17 +85,21 @@ export async function checkAndEnforceGuestLimit(
 
   const result = await checkGuestLimit(ip)
   if (!result.allowed) {
+    // This deployment is anonymous-only, so there is no "sign in" to offer —
+    // classify this as a plain rate limit, not an auth error.
     return new Response(
       JSON.stringify({
-        error: 'Please sign in to continue.',
-        authRequired: true,
+        error:
+          'You have reached today’s message limit. Please try again tomorrow.',
+        code: 'rate_limit',
+        type: 'rate-limit',
         remaining: 0,
         resetAt: result.resetAt,
         limit: result.limit
       }),
       {
-        status: 401,
-        statusText: 'Unauthorized',
+        status: 429,
+        statusText: 'Too Many Requests',
         headers: {
           'Content-Type': 'application/json',
           'X-RateLimit-Limit': String(result.limit),

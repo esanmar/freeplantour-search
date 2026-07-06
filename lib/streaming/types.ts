@@ -17,4 +17,5 @@ export interface BaseStreamConfig {
   destination?: string
   locale?: string
   currentUrl?: string
+  itineraryId?: string
 }

@@ -219,13 +219,7 @@ SUPABASE_SECRET_KEY=[YOUR_SUPABASE_SECRET_KEY]
 
 ## Guest Mode
 
-Guest mode allows users to try Morphic without creating an account. Guest sessions are ephemeral — no chat history is stored.
-
-### Enabling Guest Mode
-
-```bash
-ENABLE_GUEST_CHAT=true
-```
+Guest mode allows users to try Morphic without creating an account. Guest sessions are ephemeral — no chat history is stored. Guest chat is always enabled — there is no flag to turn it off; a visitor with no session is simply served the ephemeral guest path.
 
 ### Guest Mode Behavior
 
@@ -251,7 +245,7 @@ Rate limiting only applies when `MORPHIC_CLOUD_DEPLOYMENT=true`.
 | Environment    | Configuration                                |
 | -------------- | -------------------------------------------- |
 | Personal/Local | `ENABLE_AUTH=false` (anonymous mode)         |
-| Public Demo    | `ENABLE_GUEST_CHAT=true` with rate limiting  |
+| Public Demo    | rate limiting via `MORPHIC_CLOUD_DEPLOYMENT` |
 | Production     | `ENABLE_AUTH=true` (Supabase authentication) |
 
 ## Other Features

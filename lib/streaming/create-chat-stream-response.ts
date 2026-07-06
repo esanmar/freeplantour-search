@@ -52,7 +52,8 @@ export async function createChatStreamResponse(
     relatedEnabled = true,
     destination,
     locale,
-    currentUrl
+    currentUrl,
+    itineraryId
   } = config
 
   // Verify that chatId is provided
@@ -137,7 +138,8 @@ export async function createChatStreamResponse(
       relatedEnabled,
       destination,
       locale,
-      currentUrl
+      currentUrl,
+      itineraryId
     })
 
     // For OpenAI models, strip reasoning parts from UIMessages before conversion

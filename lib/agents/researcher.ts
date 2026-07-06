@@ -80,7 +80,8 @@ export async function createResearcher({
   relatedEnabled = true,
   destination,
   locale,
-  currentUrl
+  currentUrl,
+  itineraryId
 }: {
   model: string
   modelConfig?: Model
@@ -90,6 +91,7 @@ export async function createResearcher({
   destination?: string
   locale?: string
   currentUrl?: string
+  itineraryId?: string
 }) {
   try {
     const currentDate = new Date().toLocaleString()
@@ -99,14 +101,15 @@ export async function createResearcher({
     // a real source of FreePlanTour content.
     const internalContextBlock = destination
       ? formatDestinationContextForPrompt(
-          await getDestinationContext({ destination, locale })
+          await getDestinationContext({ destination, locale, itineraryId })
         )
       : ''
 
     const travelSystemPrompt = buildTravelSystemPrompt({
-      destination: destination ?? 'this destination',
+      destination,
       locale,
       currentUrl,
+      itineraryId,
       currentDate,
       internalContextBlock
     })

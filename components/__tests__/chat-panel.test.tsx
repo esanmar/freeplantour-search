@@ -3,7 +3,7 @@ import React from 'react'
 import { render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { deleteCookie, getCookie, setCookie } from '@/lib/utils/cookies'
+import { deleteCookie, setCookie } from '@/lib/utils/cookies'
 
 import { ChatPanel } from '../chat-panel'
 
@@ -54,9 +54,8 @@ describe('ChatPanel', () => {
     deleteCookie('searchMode')
   })
 
-  test('preserves and submits the initial query after resetting a stale adaptive cookie', async () => {
+  test('submits the initial query for a guest with adaptive mode selected', async () => {
     const append = vi.fn()
-    const onAdaptiveModeAuthRequired = vi.fn()
     setCookie('searchMode', 'adaptive')
 
     render(
@@ -81,19 +80,14 @@ describe('ChatPanel', () => {
         setNoteContexts={vi.fn()}
         isGuest
         isCloudDeployment
-        onAdaptiveModeAuthRequired={onAdaptiveModeAuthRequired}
       />
     )
 
-    await waitFor(() => {
-      expect(getCookie('searchMode')).toBe('quick')
-    })
     await waitFor(() => {
       expect(append).toHaveBeenCalledWith({
         role: 'user',
         parts: [{ type: 'text', text: 'latest news' }]
       })
     })
-    expect(onAdaptiveModeAuthRequired).not.toHaveBeenCalled()
   })
 })

@@ -17,7 +17,7 @@ describe('buildTravelSystemPrompt', () => {
     expect(prompt).toContain('Current date: 2026-07-04')
   })
 
-  it('falls back to today\'s date when currentDate is not provided', () => {
+  it("falls back to today's date when currentDate is not provided", () => {
     const prompt = buildTravelSystemPrompt({ destination: 'Bilbao' })
     expect(prompt).toContain(`Current date: ${new Date().toLocaleDateString()}`)
   })
@@ -52,7 +52,10 @@ describe('buildTravelSystemPrompt', () => {
   })
 
   it('includes the language rule', () => {
-    const prompt = buildTravelSystemPrompt({ destination: 'Bilbao', locale: 'es' })
+    const prompt = buildTravelSystemPrompt({
+      destination: 'Bilbao',
+      locale: 'es'
+    })
     expect(prompt).toContain(
       'Always respond in the same language as the latest user message.'
     )
@@ -99,5 +102,44 @@ describe('buildTravelSystemPrompt', () => {
     })
     expect(prompt).toContain('FreePlanTour destination content:')
     expect(prompt).toContain('3 days in Bilbao')
+  })
+
+  it('includes the itinerary id when provided', () => {
+    const prompt = buildTravelSystemPrompt({
+      destination: 'Bilbao',
+      itineraryId: '1780650079749'
+    })
+    expect(prompt).toContain('Current itinerary ID: 1780650079749')
+  })
+
+  it('omits the itinerary id line when not provided', () => {
+    const prompt = buildTravelSystemPrompt({ destination: 'Bilbao' })
+    expect(prompt).not.toContain('Current itinerary ID')
+  })
+
+  describe('with no destination detected', () => {
+    it('asks the user which destination they need help with, instead of guessing', () => {
+      const prompt = buildTravelSystemPrompt({})
+      expect(prompt).toContain('Current destination: unknown')
+      expect(prompt).toContain(
+        'ask the user — in their language — which destination'
+      )
+      expect(prompt).not.toContain('this destination')
+    })
+
+    it('still identifies as FreePlanTour Assistant and never mentions Morphic', () => {
+      const prompt = buildTravelSystemPrompt({})
+      expect(prompt).toContain(
+        'You are FreePlanTour Assistant, an AI travel assistant integrated into FreePlanTour.'
+      )
+      expect(prompt).toContain('Do not mention Morphic.')
+    })
+
+    it('still includes the language rule', () => {
+      const prompt = buildTravelSystemPrompt({ locale: 'es' })
+      expect(prompt).toContain(
+        'Always respond in the same language as the latest user message.'
+      )
+    })
   })
 })

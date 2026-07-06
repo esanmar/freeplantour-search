@@ -21,8 +21,11 @@ changes before wiring up the embed.
 ## Required variables
 
 For the FreePlanTour guest modal — the actual deliverable of this project —
-set **one AI provider**, **one search provider**, and the guest-chat flag.
-**A database is not required** for this use case:
+set **one AI provider** and **one search provider**. Guest chat is always
+enabled (there is no flag to turn it off — a visitor with no session is
+simply served the ephemeral guest path) and no sign-in/registration flow
+exists anywhere in the app. **A database is not required** for this use
+case:
 
 ```bash
 # One AI provider (see "AI provider setup" below for the rest)
@@ -30,9 +33,6 @@ OPENAI_API_KEY=your_openai_key
 
 # One search provider (see "Search provider setup" below for the rest)
 TAVILY_API_KEY=your_tavily_key
-
-# REQUIRED for the embedded modal specifically — see below
-ENABLE_GUEST_CHAT=true
 ```
 
 `DATABASE_URL` is required only if you also want saved/persisted chats,
@@ -72,14 +72,17 @@ Set `DATABASE_URL` (and optionally `DATABASE_RESTRICTED_URL` for a
 row-level-security-scoped connection) and those features activate
 automatically — no other configuration is needed.
 
-### Why `ENABLE_GUEST_CHAT=true` is required
+### Why there is no sign-in/registration flow
 
 Visitors on a FreePlanTour destination page have no Supabase session — every
-request the modal sends is a "guest" request
-(`app/api/chat/route.ts`). Without `ENABLE_GUEST_CHAT=true`, the API responds
-`401 Unauthorized` to every guest request and the modal cannot answer
-anything. This is the one setting that's easy to miss because the rest of
-the app (the authenticated chat page) works without it.
+request the modal sends is a "guest" request (`app/api/chat/route.ts`), and
+the API always accepts it. There is no `ENABLE_GUEST_CHAT` flag, no login
+page, and no "create a guest account" step anywhere on the chat path — the
+app never redirects to `/auth/*` and never blocks a guest's first message.
+`ENABLE_AUTH`/Supabase remain available as an **optional**, separate feature
+for anyone who wants a multi-user deployment with saved chat history
+alongside the anonymous modal; they are not needed for, and never gate, the
+FreePlanTour guest experience.
 
 ## AI provider setup
 

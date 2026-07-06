@@ -32,6 +32,8 @@ export type DestinationContext = {
 export async function getDestinationContext(params: {
   destination: string
   locale?: string
+  /** FreePlanTour itinerary id, when the assistant was opened from a specific itinerary page. */
+  itineraryId?: string
 }): Promise<DestinationContext> {
   return {
     destination: params.destination,
@@ -52,11 +54,7 @@ export function formatDestinationContextForPrompt(
   const itineraries = context.itineraries ?? []
   const activities = context.activities ?? []
 
-  if (
-    !context.summary &&
-    itineraries.length === 0 &&
-    activities.length === 0
-  ) {
+  if (!context.summary && itineraries.length === 0 && activities.length === 0) {
     return ''
   }
 
